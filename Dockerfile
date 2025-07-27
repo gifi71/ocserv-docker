@@ -1,8 +1,36 @@
+ARG S6_OVERLAY_VERSION=3.2.1.0
 ARG OCSERV_VERSION=1.3.0
 
 FROM debian:bookworm-slim AS base
 ENV DEBIAN_FRONTEND=noninteractive
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+
+FROM base AS s6-builder
+ARG S6_OVERLAY_VERSION
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    --mount=type=tmpfs,target=/var/log \
+    --mount=type=tmpfs,target=/var/tmp \
+    --mount=type=tmpfs,target=/var/cache/debconf \
+    --mount=type=tmpfs,target=/run \
+    --mount=type=tmpfs,target=/tmp \
+    set -x \
+ && apt-get update \
+ && apt-get upgrade -y -qq \
+ && apt-get install -y --no-install-recommends --no-install-suggests \
+    wget ca-certificates xz-utils
+
+WORKDIR /s6
+
+RUN --mount=type=tmpfs,target=/tmp \
+ set -xue \
+ && cd /tmp \
+ && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz \
+ && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz \
+ && tar -C /s6 -Jxpf ./s6-overlay-noarch.tar.xz \
+ && tar -C /s6 -Jxpf ./s6-overlay-x86_64.tar.xz
+
+COPY ./rootfs/ /s6/
 
 FROM base AS builder
 ARG OCSERV_VERSION
@@ -61,7 +89,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     iproute2 iptables bash \
  && apt purge --yes --auto-remove
 
-COPY entrypoint.sh /entrypoint.sh
+ENV S6_LOGGING=0
+COPY --link --from=s6-builder /s6 /
 COPY --link --from=builder /opt/ocserv /opt/ocserv
 
 WORKDIR /etc/ocserv
@@ -69,4 +98,4 @@ WORKDIR /etc/ocserv
 EXPOSE 443/tcp
 EXPOSE 443/udp
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/init"]
