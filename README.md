@@ -74,7 +74,13 @@ The default config is located at:
 config/ocserv.conf
 ```
 
+**Important:**
 Customize it to fit your network and authentication setup.
+Make sure the following setting is present and enabled in your `ocserv.conf`:
+
+```conf
+use-occtl = true
+```
 
 ### 5. Edit `.env` (optional, all values can be commented out)
 
@@ -83,16 +89,29 @@ To forward specific ports from the container to VPN clients, define the `PORTS` 
 **Format:**
 
 ```env
+# (optional) firewall ports map, default: not set
 PORTS="<host_port>:<client_ip>:<client_port> ..."
+
+## (optional) 1 - enable ocserv-exporter, default: 0
+EXPORTER_ENABLED=0
+
+# (optional) default ocserv-exporter delay between occtl scrape, default: 30s
+EXPORTER_INTERVAL=30s
+
+# (optional) ocserv-exporter prometheus HTTP listen IP and port, default: 0.0.0.0:8000
+EXPORTER_BIND=0.0.0.0:8000
 ```
 
 **Example:**
 
 ```env
 PORTS="80:10.10.0.2:80 443:10.10.0.2:443 25565:10.10.0.3:25565"
+EXPORTER_ENABLED=1
+EXPORTER_INTERVAL=30s
+EXPORTER_BIND=0.0.0.0:8000
 ```
 
-This will forward traffic on ports `80`, `443`, and `25565` from the host to the specified VPN clients.
+This will forward traffic on ports `80`, `443`, and `25565` from the host to the specified VPN clients and serve prometheus metric (see [https://github.com/criteo/ocserv-exporter](https://github.com/criteo/ocserv-exporter) for details) at `http://0.0.0.0:8000/metrics`.
 
 ### 6. Edit `docker-compose.yml` (optional)
 
@@ -142,6 +161,10 @@ docker run -d \
 - [x] Implement a multi-stage Docker build to reduce image size (`430MB` -> `113MB`)
 - [x] Publish image to GitHub Container Registry (`ghcr.io/gifi71/ocserv-docker`)
 - [x] Improve multi-stage Docker build to reduce image size (`113MB` -> `95MB`)
+- [x] Transitioned to using s6 overlay for process supervision and service management
+- [x] Added ocserv-exporter to provide Prometheus metrics for monitoring
+- [x] Updated healthcheck to cover both ocserv service and ocserv-exporter functionality
+- [ ] Covered the build process with automated tests in GitHub Workflow to ensure image integrity and functionality
 
 ---
 

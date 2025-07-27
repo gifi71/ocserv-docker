@@ -1,5 +1,7 @@
-#!/usr/bin/env bash
+#!/command/with-contenv bash
 set -e
+
+echo "[INFO] Firewall configuration started"
 
 if [ -n "$PORTS" ]; then
   echo "[INFO] Enabling port forwarding (TCP & UDP)..."
@@ -26,5 +28,4 @@ echo "[INFO] Enabling NAT forwarding..."
 iptables -t nat -A POSTROUTING -j MASQUERADE
 iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
-echo "[INFO] Starting ocserv..."
-exec /opt/ocserv/sbin/ocserv -f -c /etc/ocserv/ocserv.conf
+echo "[INFO] The firewall is configured"
