@@ -30,7 +30,13 @@ services:
         max-file: "3"
 
     healthcheck:
-      test: ["CMD-SHELL", "/opt/ocserv/bin/occtl show users || exit 1"]
+      test: >
+        CMD-SHELL
+        /opt/ocserv/bin/occtl show users > /dev/null 2>&1 || exit 1;
+        if [ "$EXPORTER_ENABLED" = "1" ]; then
+          curl -sf http://127.0.0.1:8000/metrics > /dev/null || exit 1;
+        fi;
+        exit 0;
       interval: 30s
       timeout: 5s
       retries: 3

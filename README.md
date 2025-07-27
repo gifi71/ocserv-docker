@@ -74,7 +74,13 @@ The default config is located at:
 config/ocserv.conf
 ```
 
+**Important:**
 Customize it to fit your network and authentication setup.
+Make sure the following setting is present and enabled in your `ocserv.conf`:
+
+```conf
+use-occtl = true
+```
 
 ### 5. Edit `.env` (optional, all values can be commented out)
 
@@ -155,6 +161,10 @@ docker run -d \
 - [x] Implement a multi-stage Docker build to reduce image size (`430MB` -> `113MB`)
 - [x] Publish image to GitHub Container Registry (`ghcr.io/gifi71/ocserv-docker`)
 - [x] Improve multi-stage Docker build to reduce image size (`113MB` -> `95MB`)
+- [x] Transitioned to using s6 overlay for process supervision and service management
+- [x] Added ocserv-exporter to provide Prometheus metrics for monitoring
+- [x] Updated healthcheck to cover both ocserv service and ocserv-exporter functionality
+- [ ] Covered the build process with automated tests in GitHub Workflow to ensure image integrity and functionality
 
 ---
 
