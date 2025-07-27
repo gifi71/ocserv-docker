@@ -1,5 +1,6 @@
 ARG S6_OVERLAY_VERSION=3.2.1.0
 ARG OCSERV_VERSION=1.3.0
+ARG OCSERV_EXPORTER_VERSION=0.2.1
 
 FROM debian:bookworm-slim AS base
 ENV DEBIAN_FRONTEND=noninteractive
@@ -31,6 +32,29 @@ RUN --mount=type=tmpfs,target=/tmp \
  && tar -C /s6 -Jxpf ./s6-overlay-x86_64.tar.xz
 
 COPY ./rootfs/ /s6/
+
+FROM base AS ocserv-exporter-builder
+ARG OCSERV_EXPORTER_VERSION
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    --mount=type=tmpfs,target=/var/log \
+    --mount=type=tmpfs,target=/var/tmp \
+    --mount=type=tmpfs,target=/var/cache/debconf \
+    --mount=type=tmpfs,target=/run \
+    --mount=type=tmpfs,target=/tmp \
+    set -x \
+ && apt-get update \
+ && apt-get upgrade -y -qq \
+ && apt-get install -y --no-install-recommends --no-install-suggests \
+    wget ca-certificates
+
+WORKDIR /ocserv-exporter
+
+RUN --mount=type=tmpfs,target=/tmp \
+ set -xue \
+ && cd /tmp \
+ && wget https://github.com/criteo/ocserv-exporter/releases/download/v${OCSERV_EXPORTER_VERSION}/ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_amd64.tar.gz \
+ && tar -C /ocserv-exporter -xvf ./ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_amd64.tar.gz
 
 FROM base AS builder
 ARG OCSERV_VERSION
@@ -91,6 +115,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 ENV S6_LOGGING=0
 COPY --link --from=s6-builder /s6 /
+COPY --link --from=ocserv-exporter-builder /ocserv-exporter /opt/ocserv-exporter/
 COPY --link --from=builder /opt/ocserv /opt/ocserv
 
 WORKDIR /etc/ocserv

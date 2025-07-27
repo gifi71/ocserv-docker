@@ -1,0 +1,3 @@
+#!/command/with-contenv bash
+
+echo [INFO] ocserv-exporter stopped
