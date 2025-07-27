@@ -8,6 +8,7 @@ RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloa
 
 FROM base AS s6-builder
 ARG S6_OVERLAY_VERSION
+
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log \
@@ -24,7 +25,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 WORKDIR /s6
 
 RUN --mount=type=tmpfs,target=/tmp \
- set -xue \
+    set -xue \
  && cd /tmp \
  && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz \
  && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz \
@@ -35,6 +36,7 @@ COPY ./rootfs/ /s6/
 
 FROM base AS ocserv-exporter-builder
 ARG OCSERV_EXPORTER_VERSION
+
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log \
@@ -51,12 +53,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 WORKDIR /ocserv-exporter
 
 RUN --mount=type=tmpfs,target=/tmp \
- set -xue \
+    set -xue \
  && cd /tmp \
  && wget https://github.com/criteo/ocserv-exporter/releases/download/v${OCSERV_EXPORTER_VERSION}/ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_amd64.tar.gz \
  && tar -C /ocserv-exporter -xvf ./ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_amd64.tar.gz
 
-FROM base AS builder
+FROM base AS ocserv-builder
 ARG OCSERV_VERSION
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -74,7 +76,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libgnutls28-dev libev-dev libreadline-dev libpam0g-dev liblz4-dev \
     libseccomp-dev libnl-route-3-dev libkrb5-dev libradcli-dev \
     libcurl4-gnutls-dev libcjose-dev libjansson-dev liboath-dev \
-    libprotobuf-c-dev libtalloc-dev libhttp-parser-dev protobuf-c-compiler gperf ipcalc-ng gpg gpg-agent
+    libprotobuf-c-dev libtalloc-dev libhttp-parser-dev \
+    protobuf-c-compiler gperf ipcalc-ng gpg gpg-agent
 
 WORKDIR /tmp
 
@@ -93,6 +96,7 @@ RUN --mount=type=tmpfs,target=/tmp \
  && make install
 
 FROM base AS final
+ENV S6_LOGGING=0
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -113,14 +117,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     iproute2 iptables bash \
  && apt purge --yes --auto-remove
 
-ENV S6_LOGGING=0
 COPY --link --from=s6-builder /s6 /
 COPY --link --from=ocserv-exporter-builder /ocserv-exporter /opt/ocserv-exporter/
-COPY --link --from=builder /opt/ocserv /opt/ocserv
+COPY --link --from=ocserv-builder /opt/ocserv /opt/ocserv
 
 WORKDIR /etc/ocserv
 
 EXPOSE 443/tcp
 EXPOSE 443/udp
+EXPOSE 8000/tcp
 
 ENTRYPOINT ["/init"]
