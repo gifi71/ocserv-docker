@@ -111,7 +111,7 @@ EXPORTER_INTERVAL=30s
 EXPORTER_BIND=0.0.0.0:8000
 ```
 
-This will forward traffic on ports `80`, `443`, and `25565` from the host to the specified VPN clients and serve prometheus metric (see [https://github.com/criteo/ocserv-exporter](https://github.com/criteo/ocserv-exporter) for details) at `http://0.0.0.0:8000/metrics`.
+This will forward traffic on ports `80`, `443`, and `25565` from the host to the specified VPN clients and serve prometheus metric (see [criteo/ocserv-exporter](https://github.com/criteo/ocserv-exporter) for details) at `http://0.0.0.0:8000/metrics`.
 
 ### 6. Edit `docker-compose.yml` (optional)
 
@@ -149,7 +149,7 @@ docker run -d \
   -p 443:443/tcp \
   -p 443:443/udp \
   --env-file .env \
-  -v $(pwd)/config:/etc/ocserv \
+  -v "$(pwd)/config:/etc/ocserv" \
   --security-opt no-new-privileges \
   ghcr.io/gifi71/ocserv-docker:latest
 ```
