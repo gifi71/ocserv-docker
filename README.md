@@ -1,17 +1,62 @@
-# 🛡️ ocserv-docker
+<!-- markdownlint-disable MD033 -->
 
-A containerized version of [ocserv (OpenConnect VPN server)](http://www.infradead.org/ocserv/), built from source for security, flexibility, and minimal overhead.  
-This project provides an easy-to-deploy VPN server with support for port forwarding and basic NAT out of the box.
+<h1 align="center">🛡️ ocserv-docker</h1>
+
+<p align="center">
+  <a href="https://github.com/gifi71/ocserv-docker/actions/workflows/docker-publish.yml">
+    <img src="https://github.com/gifi71/ocserv-docker/actions/workflows/docker-publish.yml/badge.svg" alt="build" />
+  </a>
+  <a href="https://github.com/gifi71/ocserv-docker/tags">
+    <img src="https://img.shields.io/github/v/tag/gifi71/ocserv-docker" alt="tag" />
+  </a>
+  <a href="https://github.com/gifi71/ocserv-docker/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/gifi71/ocserv-docker" alt="license" />
+  </a>
+  <a href="https://github.com/gifi71/ocserv-docker/search?l=dockerfile">
+    <img src="https://img.shields.io/github/languages/top/gifi71/ocserv-docker" alt="language" />
+  </a>
+  <a href="https://github.com/gifi71/ocserv-docker/commits/main">
+    <img src="https://img.shields.io/github/last-commit/gifi71/ocserv-docker" alt="last commit" />
+  </a>
+  <a href="https://github.com/gifi71/ocserv-docker/stargazers">
+    <img src="https://img.shields.io/github/stars/gifi71/ocserv-docker" alt="stars" />
+  </a>
+</p>
+
+<!-- markdownlint-enable MD033 -->
+
+A containerized version of [`ocserv`](https://gitlab.com/openconnect/ocserv/) [(OpenConnect VPN server)](https://ocserv.openconnect-vpn.net/), built from source for security, flexibility, and minimal overhead.
+This project provides an easy-to-deploy VPN server with support for port forwarding to VPN clients, basic NAT out of the box, and optional Prometheus metrics export via [`ocserv-exporter`](https://github.com/criteo/ocserv-exporter) for real-time monitoring and alerting.
+
+---
+
+## 📚 Table of Contents
+
+- [✨ Features](#-features)
+- [📁 Project Structure](#-project-structure)
+- [📦 Installation](#-installation)
+- [⚙️ Configuration](#️-configuration)
+- [🚀 Running the Container](#-running-the-container)
+- [🧭 Roadmap](#-roadmap)
+- [🙋 Contributing](#-contributing)
+- [💬 Support](#-support)
+- [📜 License](#-license)
+- [📈 Repository Insights](#-repository-insights)
 
 ---
 
 ## ✨ Features
 
-- ✅ Lightweight image built from **Debian slim**
-- 🔒 Compiles latest **ocserv v1.3.0** from source
+- 🐳 **Fully containerized** via Docker & Compose
+- ✅ **Lightweight image** built from `debian:bookworm-slim`
+- 📦 **Multi-stage Docker build** with optimized final image size
+- 🔒 Builds **latest `ocserv` v1.3.0** from source with upstream GPG signature verification
+- ⚙️ **Includes default `ocserv.conf`** for quick setup and customization
+- 🔁 Uses **s6-overlay** for process supervision and service orchestration
 - 🌐 Supports dynamic **TCP/UDP port forwarding** to VPN clients
-- ⚙️ Includes a **default `ocserv.conf`** for quick setup
-- 🐳 Fully containerized via **Docker & Compose**
+- 📊 Optional **Prometheus metrics export** via `ocserv-exporter`
+- 💡 **Custom healthcheck script** validates both `ocserv` and `ocserv-exporter`
+- 🧪 **Integrated GitHub Actions CI** for build and image integrity testing
 - 📜 Licensed under **GPLv3**
 
 ---
@@ -43,7 +88,6 @@ ocserv-docker/
 ### 1. Install Docker
 
 ```bash
-apt-get update && apt-get upgrade -y
 curl -sSL https://get.docker.com | sh
 ```
 
@@ -54,75 +98,72 @@ git clone https://github.com/gifi71/ocserv-docker.git /opt/ocserv-docker
 cd /opt/ocserv-docker
 ```
 
-### 3. Optimize Host Networking (optional)
-
-Edit `/etc/sysctl.conf`:
-
-```conf
-net.core.default_qdisc = fq
-net.ipv4.tcp_congestion_control = bbr
-```
-
-Apply changes:
-
-```bash
-sysctl -p
-```
-
 ---
 
 ## ⚙️ Configuration
 
-### 4. Edit ocserv Configuration
+### 3. Edit ocserv Configuration
 
-The default config is located at:
+Customize it to fit your network and authentication setup. The default config is located at:
 
 ```plain
 config/ocserv.conf
 ```
 
 **Important:**
-Customize it to fit your network and authentication setup.
-Make sure the following setting is present and enabled in your `ocserv.conf`:
+> ⚠️ Make sure the following setting is present and enabled in your `ocserv.conf`:
 
 ```conf
 use-occtl = true
 ```
 
-### 5. Edit `.env` (optional, all values can be commented out)
+This setting enables the `occtl` command interface, which is **required** for the custom healthcheck script to verify `ocserv` status and for the `ocserv-exporter` to collect Prometheus metrics. Without it, both health monitoring and metrics export will not function correctly.
 
-To forward specific ports from the container to VPN clients, define the `PORTS` environment variable.
+### 4. Edit `.env` (optional, all values can be commented out)
 
-**Format:**
-
-```env
-# (optional) firewall ports map, default: not set
-PORTS="<host_port>:<client_ip>:<client_port> ..."
-
-## (optional) 1 - enable ocserv-exporter, default: 0
-EXPORTER_ENABLED=0
-
-# (optional) default ocserv-exporter delay between occtl scrape, default: 30s
-EXPORTER_INTERVAL=30s
-
-# (optional) ocserv-exporter prometheus HTTP listen IP and port, default: 0.0.0.0:8000
-EXPORTER_BIND=0.0.0.0:8000
-```
+| Variable            | Description                                                       | Default        |
+| ------------------- | ----------------------------------------------------------------- | -------------- |
+| `PORTS`             | Space-separated list of port forwards in `<host>:<client>:<port>` | Not set        |
+| `EXPORTER_ENABLED`  | Enable `ocserv-exporter` for Prometheus metrics                   | `0`            |
+| `EXPORTER_INTERVAL` | Scrape interval for exporter                                      | `30s`          |
+| `EXPORTER_BIND`     | Exporter listen address                                           | `0.0.0.0:8000` |
 
 **Example:**
 
 ```env
-PORTS="80:10.10.0.2:80 443:10.10.0.2:443 25565:10.10.0.3:25565"
+PORTS="80:10.10.0.2:80 25565:10.10.0.3:25565"
 EXPORTER_ENABLED=1
 EXPORTER_INTERVAL=30s
 EXPORTER_BIND=0.0.0.0:8000
 ```
 
-This will forward traffic on ports `80`, `443`, and `25565` from the host to the specified VPN clients and serve prometheus metric (see [criteo/ocserv-exporter](https://github.com/criteo/ocserv-exporter) for details) at `http://0.0.0.0:8000/metrics`.
+This will forward traffic on ports `80` and `25565` from the container to the specified VPN clients and serve prometheus metric (see [`ocserv-exporter`](https://github.com/criteo/ocserv-exporter) for details) at `http://0.0.0.0:8000/metrics`.
 
-### 6. Edit `docker-compose.yml` (optional)
+### 5. Edit `docker-compose.yml` (optional)
 
-Adjust ports, volumes, or container settings if needed.
+You can customize basic settings without breaking functionality, such as:
+
+- **Ports:** Change or add host ports to avoid conflicts or expose different VPN ports.
+- **Volumes:** Modify the config folder path if your `ocserv.conf` or other files are stored elsewhere.
+- **Container name:** Rename the container if you run multiple instances.
+- **Logging options:** Adjust log file size or rotation limits if needed.
+
+### 6. Optimize Host Networking (optional)
+
+To improve TCP performance, especially when using TCP VPN connections, you can enable the following settings by editing `/etc/sysctl.conf`:
+
+```conf
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+```
+
+Apply the changes with:
+
+```bash
+sysctl -p
+```
+
+These settings optimize packet scheduling and enable the BBR TCP congestion control algorithm, which can significantly enhance TCP throughput and reduce latency. This optimization is particularly useful if your VPN clients mainly use TCP connections.
 
 ---
 
@@ -161,20 +202,55 @@ docker run -d \
   ghcr.io/gifi71/ocserv-docker:latest
 ```
 
+### Building the Image Yourself
+
+You can build the Docker image locally using the provided Makefile target:
+
+```bash
+make oci-image
+```
+
+This runs:
+
+```bash
+docker buildx build --progress=plain --pull -t ghcr.io/gifi71/ocserv-docker:latest .
+```
+
+which builds the image with detailed output and tags it with `ghcr.io/gifi71/ocserv-docker:latest`.
+
 ---
 
-## 🧱 TODO
+## 🧭 Roadmap
 
-- [x] Implement a multi-stage Docker build to reduce image size (`430MB` -> `113MB`)
-- [x] Publish image to GitHub Container Registry (`ghcr.io/gifi71/ocserv-docker`)
-- [x] Improve multi-stage Docker build to reduce image size (`113MB` -> `95MB`)
-- [x] Transitioned to using s6 overlay for process supervision and service management
-- [x] Added ocserv-exporter to provide Prometheus metrics for monitoring
-- [x] Updated healthcheck to cover both ocserv service and ocserv-exporter functionality
-- [ ] Covered the build process with automated tests in GitHub Workflow to ensure image integrity and functionality
+- [x] Multi-stage build (430MB -> 113MB)
+- [x] Published to GHCR
+- [x] `s6-overlay` supervision
+- [x] `ocserv-exporter` integration
+- [x] Extended healthcheck
+- [ ] CI tests for image validation
+
+---
+
+## 🙋 Contributing
+
+Contributions, issues and feature requests are welcome!  
+Feel free to check the [issues page](https://github.com/gifi71/ocserv-docker/issues) or submit a pull request.
+
+---
+
+## 💬 Support
+
+If you find this project useful, feel free to star it 🌟 and share it.  
+For questions or help, open an [issue](https://github.com/gifi71/ocserv-docker/issues).
 
 ---
 
 ## 📜 License
 
 This project includes `ocserv`, licensed under [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.html). All derivative works must also be distributed under GPLv3.
+
+---
+
+## 📈 Repository Insights
+
+![info](https://repobeats.axiom.co/api/embed/087b5f74d9fa0d9fb879eaceb890b74c8c1b12ca.svg)
