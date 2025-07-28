@@ -20,14 +20,21 @@ This project provides an easy-to-deploy VPN server with support for port forward
 
 ```plain
 ocserv-docker/
-├── config/                # Contains ocserv.conf (default server config)
-│   └── ocserv.conf
-├── docker-compose.yml     # Compose setup for the container
-├── Dockerfile             # Builds ocserv from source
-├── entrypoint.sh          # Entrypoint script (port forwarding + server start)
-├── LICENSE                # GNU GPLv3 license
-└── README.md              # Project documentation
-````
+├── .github/workflows/
+│   └── docker-publish.yml     # CI for Docker image publishing
+├── config/
+│   └── ocserv.conf            # ocserv default config
+├── rootfs/
+│   ├── usr/local/bin/         # Scripts (e.g. healthcheck)
+│   └── etc/s6-overlay/        # s6 service definitions
+├── .dockerignore              # Files to exclude from Docker build
+├── .env                       # Environment variables for Compose
+├── docker-compose.yml         # Local dev/test setup
+├── Dockerfile                 # Docker image build instructions
+├── LICENSE                    # Project license (GPLv3)
+├── Makefile                   # Build commands
+└── README.md                  # Project documentation
+```
 
 ---
 
