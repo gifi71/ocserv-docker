@@ -127,4 +127,6 @@ EXPOSE 443/tcp
 EXPOSE 443/udp
 EXPOSE 8000/tcp
 
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD /usr/local/bin/healthcheck.sh
+
 ENTRYPOINT ["/init"]
