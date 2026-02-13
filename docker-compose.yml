@@ -13,7 +13,7 @@ services:
     network_mode: host
 
     env_file:
-      - .env
+      - .env  # copy from .env.example
     volumes:
       - ./config:/etc/ocserv:ro
     security_opt:
