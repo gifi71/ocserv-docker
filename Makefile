@@ -18,7 +18,7 @@ push: ## Push the image to GHCR
 
 lint: ## Run hadolint and shellcheck
 	hadolint Dockerfile
-	shellcheck rootfs/etc/s6-overlay/s6-rc.d/*/run rootfs/etc/s6-overlay/s6-rc.d/*/teardown rootfs/usr/local/bin/*.sh
+	shellcheck $$(find rootfs -name 'run' -o -name 'finish' -o -name 'teardown' -o -name '*.sh')
 
 clean: ## Remove the built image
 	docker rmi $(IMAGE):$(TAG) 2>/dev/null || true
