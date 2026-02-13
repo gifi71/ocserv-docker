@@ -3,7 +3,6 @@ set -e
 
 echo "[healthcheck] Starting ocserv health check..."
 
-# Проверка ocserv
 if /opt/ocserv/bin/occtl show status > /dev/null 2>&1; then
   echo "[healthcheck] occtl status: OK"
 else
@@ -11,15 +10,13 @@ else
   exit 1
 fi
 
-# Проверка метрик, если включено
 if [ "$EXPORTER_ENABLED" = "1" ]; then
   echo "[healthcheck] EXPORTER_ENABLED is set to 1, checking metrics..."
 
-  BIND="${EXPORTER_BIND:-0.0.0.0:8000}"
+  BIND="${EXPORTER_BIND:-127.0.0.1:8000}"
   PORT="${BIND##*:}"
-  IP="${BIND%%:*}"
 
-  echo "[healthcheck] Parsed EXPORTER_BIND: IP=$IP, PORT=$PORT"
+  echo "[healthcheck] Checking metrics on port $PORT"
 
   if output=$(curl -sf "http://127.0.0.1:${PORT}/metrics"); then
     if [ -n "$output" ]; then
