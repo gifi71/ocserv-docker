@@ -8,6 +8,7 @@ RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloa
 
 FROM base AS s6-builder
 ARG S6_OVERLAY_VERSION
+ARG TARGETARCH
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -27,15 +28,26 @@ WORKDIR /s6
 RUN --mount=type=tmpfs,target=/tmp \
     set -xue \
  && cd /tmp \
+ && case "$TARGETARCH" in \
+      amd64) S6_ARCH="x86_64" ;; \
+      arm64) S6_ARCH="aarch64" ;; \
+      arm)   S6_ARCH="arm" ;; \
+      *)     S6_ARCH="$TARGETARCH" ;; \
+    esac \
  && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz \
- && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz \
+ && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz.sha256 \
+ && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz \
+ && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz.sha256 \
+ && sha256sum -c s6-overlay-noarch.tar.xz.sha256 \
+ && sha256sum -c s6-overlay-${S6_ARCH}.tar.xz.sha256 \
  && tar -C /s6 -Jxpf ./s6-overlay-noarch.tar.xz \
- && tar -C /s6 -Jxpf ./s6-overlay-x86_64.tar.xz
+ && tar -C /s6 -Jxpf ./s6-overlay-${S6_ARCH}.tar.xz
 
 COPY ./rootfs/ /s6/
 
 FROM base AS ocserv-exporter-builder
 ARG OCSERV_EXPORTER_VERSION
+ARG TARGETARCH
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -55,8 +67,8 @@ WORKDIR /ocserv-exporter
 RUN --mount=type=tmpfs,target=/tmp \
     set -xue \
  && cd /tmp \
- && wget https://github.com/criteo/ocserv-exporter/releases/download/v${OCSERV_EXPORTER_VERSION}/ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_amd64.tar.gz \
- && tar -C /ocserv-exporter -xvf ./ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_amd64.tar.gz
+ && wget https://github.com/criteo/ocserv-exporter/releases/download/v${OCSERV_EXPORTER_VERSION}/ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz \
+ && tar -C /ocserv-exporter -xvf ./ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz
 
 FROM base AS ocserv-builder
 ARG OCSERV_VERSION
