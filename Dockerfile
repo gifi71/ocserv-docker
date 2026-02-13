@@ -6,7 +6,20 @@ FROM debian:bookworm-slim AS base
 ENV DEBIAN_FRONTEND=noninteractive
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
-FROM base AS s6-builder
+FROM base AS downloader
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    --mount=type=tmpfs,target=/var/log \
+    --mount=type=tmpfs,target=/var/tmp \
+    --mount=type=tmpfs,target=/var/cache/debconf \
+    --mount=type=tmpfs,target=/run \
+    --mount=type=tmpfs,target=/tmp \
+    set -x \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends --no-install-suggests \
+    wget ca-certificates
+
+FROM downloader AS s6-builder
 ARG S6_OVERLAY_VERSION
 ARG TARGETARCH
 
@@ -18,10 +31,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=tmpfs,target=/run \
     --mount=type=tmpfs,target=/tmp \
     set -x \
- && apt-get update \
- && apt-get upgrade -y -qq \
  && apt-get install -y --no-install-recommends --no-install-suggests \
-    wget ca-certificates xz-utils
+    xz-utils
 
 WORKDIR /s6
 
@@ -34,41 +45,35 @@ RUN --mount=type=tmpfs,target=/tmp \
       arm)   S6_ARCH="arm" ;; \
       *)     S6_ARCH="$TARGETARCH" ;; \
     esac \
- && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz \
- && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz.sha256 \
- && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz \
- && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz.sha256 \
+ && wget -q "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" \
+ && wget -q "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz.sha256" \
+ && wget -q "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz" \
+ && wget -q "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz.sha256" \
  && sha256sum -c s6-overlay-noarch.tar.xz.sha256 \
- && sha256sum -c s6-overlay-${S6_ARCH}.tar.xz.sha256 \
+ && sha256sum -c "s6-overlay-${S6_ARCH}.tar.xz.sha256" \
  && tar -C /s6 -Jxpf ./s6-overlay-noarch.tar.xz \
- && tar -C /s6 -Jxpf ./s6-overlay-${S6_ARCH}.tar.xz
+ && tar -C /s6 -Jxpf "./s6-overlay-${S6_ARCH}.tar.xz"
 
 COPY ./rootfs/ /s6/
 
-FROM base AS ocserv-exporter-builder
+FROM downloader AS ocserv-exporter-builder
 ARG OCSERV_EXPORTER_VERSION
 ARG TARGETARCH
 
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    --mount=type=tmpfs,target=/var/log \
-    --mount=type=tmpfs,target=/var/tmp \
-    --mount=type=tmpfs,target=/var/cache/debconf \
-    --mount=type=tmpfs,target=/run \
-    --mount=type=tmpfs,target=/tmp \
-    set -x \
- && apt-get update \
- && apt-get upgrade -y -qq \
- && apt-get install -y --no-install-recommends --no-install-suggests \
-    wget ca-certificates
-
 WORKDIR /ocserv-exporter
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN --mount=type=tmpfs,target=/tmp \
     set -xue \
  && cd /tmp \
- && wget https://github.com/criteo/ocserv-exporter/releases/download/v${OCSERV_EXPORTER_VERSION}/ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz \
- && tar -C /ocserv-exporter -xvf ./ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz
+ && wget -q "https://github.com/criteo/ocserv-exporter/releases/download/v${OCSERV_EXPORTER_VERSION}/ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz" \
+ && case "$TARGETARCH" in \
+      amd64) CHECKSUM="6c43e795ad6cd32324ccb263de4f0d8b1f703c7602575e8910a62ef476731a34" ;; \
+      arm64) CHECKSUM="36a0de4d62ab759eb176687a035d9a1675323315da71ae9a0d4edbcd17ee49da" ;; \
+      *)     echo "Unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+ && echo "${CHECKSUM}  ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz" | sha256sum -c \
+ && tar -C /ocserv-exporter -xvf "./ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz"
 
 FROM base AS ocserv-builder
 ARG OCSERV_VERSION
@@ -82,7 +87,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=tmpfs,target=/tmp \
     set -x \
  && apt-get update \
- && apt-get upgrade -y -qq \
  && apt-get install -y --no-install-recommends --no-install-suggests \
     build-essential pkg-config wget ca-certificates \
     libgnutls28-dev libev-dev libreadline-dev libpam0g-dev liblz4-dev \
@@ -91,18 +95,20 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libprotobuf-c-dev libtalloc-dev libhttp-parser-dev \
     protobuf-c-compiler gperf ipcalc-ng gpg gpg-agent
 
+COPY ./keys/96865171.asc /usr/local/share/96865171.asc
+
 WORKDIR /tmp
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN --mount=type=tmpfs,target=/tmp \
     set -x \
  && mkdir -p /opt/ocserv \
- && wget --no-check-certificate https://ocserv.openconnect-vpn.net/assets/keys/96865171.asc \
- && wget https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz \
- && wget https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz.sig \
- && gpg --no-default-keyring --keyring ${PWD}/keyring.gpg --import 96865171.asc \
- && gpg -v --status-fd 1 --no-default-keyring --keyring ${PWD}/keyring.gpg --verify ocserv-${OCSERV_VERSION}.tar.xz.sig 2>&1 | grep "^\[GNUPG:\] VALIDSIG" \
- && tar xf ocserv-${OCSERV_VERSION}.tar.xz \
- && cd ocserv-${OCSERV_VERSION} \
+ && wget -q "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz" \
+ && wget -q "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz.sig" \
+ && gpg --no-default-keyring --keyring "${PWD}/keyring.gpg" --import /usr/local/share/96865171.asc \
+ && gpg -v --status-fd 1 --no-default-keyring --keyring "${PWD}/keyring.gpg" --verify "ocserv-${OCSERV_VERSION}.tar.xz.sig" 2>&1 | grep "^\[GNUPG:\] VALIDSIG" \
+ && tar xf "ocserv-${OCSERV_VERSION}.tar.xz" \
+ && cd "ocserv-${OCSERV_VERSION}" \
  && ./configure --prefix=/opt/ocserv \
  && make -j"$(nproc)" \
  && make install
@@ -126,8 +132,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libcom-err2 libkeyutils1 libidn2-0 libp11-kit0 libnettle8 \
     libhogweed6 libgmp10 libtasn1-6 libffi8 libcap-ng0 libcrypt1 \
     libunistring2 libaudit1 libreadline8 libnl-3-200 libnl-route-3-200 \
-    iproute2 iptables less curl bash \
- && apt purge --yes --auto-remove
+    iproute2 iptables less curl bash
 
 COPY --link --from=s6-builder /s6 /
 COPY --link --from=ocserv-exporter-builder /ocserv-exporter /opt/ocserv-exporter/

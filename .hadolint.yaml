@@ -1,0 +1,3 @@
+ignored:
+  - DL3008  # version pinning not practical for builder stages
+  - DL3003  # cd /tmp needed inside tmpfs-mounted RUN layers
