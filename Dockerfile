@@ -106,7 +106,7 @@ RUN --mount=type=tmpfs,target=/tmp \
  && wget -q "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz" \
  && wget -q "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz.sig" \
  && gpg --no-default-keyring --keyring "${PWD}/keyring.gpg" --import /usr/local/share/96865171.asc \
- && gpg -v --status-fd 1 --no-default-keyring --keyring "${PWD}/keyring.gpg" --verify "ocserv-${OCSERV_VERSION}.tar.xz.sig" 2>&1 | grep "^\[GNUPG:\] VALIDSIG" \
+ && gpg -v --status-fd 1 --no-default-keyring --keyring "${PWD}/keyring.gpg" --verify "ocserv-${OCSERV_VERSION}.tar.xz.sig" 2>&1 | grep "^\[GNUPG:\] VALIDSIG 1F42418905D8206AA754CCDC29EE58B996865171" \
  && tar xf "ocserv-${OCSERV_VERSION}.tar.xz" \
  && cd "ocserv-${OCSERV_VERSION}" \
  && ./configure --prefix=/opt/ocserv \
