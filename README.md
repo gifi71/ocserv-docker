@@ -63,11 +63,14 @@ A containerized [ocserv](https://gitlab.com/openconnect/ocserv/) (OpenConnect VP
 ocserv-docker/
 ├── .github/workflows/
 │   └── docker-publish.yml     # CI for Docker image publishing
+├── keys/
+│   └── 96865171.asc           # ocserv GPG signing key
 ├── rootfs/
 │   ├── usr/local/bin/         # Scripts (healthcheck)
 │   └── etc/s6-overlay/        # s6 service definitions
 ├── .dockerignore
 ├── .env                       # Environment variables for Compose
+├── .pre-commit-config.yaml
 ├── docker-compose.yml
 ├── Dockerfile
 ├── LICENSE
@@ -166,6 +169,7 @@ net.ipv4.tcp_congestion_control = bbr
 | `EXPORTER_ENABLED`  | Enable `ocserv-exporter` for Prometheus      | `0`               |
 | `EXPORTER_INTERVAL` | Scrape interval for exporter                 | `30s`             |
 | `EXPORTER_BIND`     | Exporter listen address                      | `127.0.0.1:8000`  |
+| `VPN_NETWORK`       | Restrict NAT MASQUERADE to this CIDR subnet  | *(broad rule)*    |
 
 ---
 
@@ -193,7 +197,7 @@ docker run -d \
   --device /dev/net/tun:/dev/net/tun \
   --network host \
   --env-file .env \
-  -v "$(pwd)/config:/etc/ocserv" \
+  -v "$(pwd)/config:/etc/ocserv:ro" \
   --security-opt no-new-privileges \
   ghcr.io/gifi71/ocserv-docker:0.1.0
 ```
@@ -234,7 +238,7 @@ docker run -d \
   -p 443:443/tcp \
   -p 443:443/udp \
   --env-file .env \
-  -v "$(pwd)/config:/etc/ocserv" \
+  -v "$(pwd)/config:/etc/ocserv:ro" \
   --security-opt no-new-privileges \
   ghcr.io/gifi71/ocserv-docker:0.1.0
 ```
@@ -257,6 +261,13 @@ docker run -d \
 
 Contributions, issues and feature requests are welcome.
 Check the [issues page](https://github.com/gifi71/ocserv-docker/issues) or submit a pull request.
+
+To set up pre-commit hooks:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
 
 ---
 
