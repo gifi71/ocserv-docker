@@ -116,6 +116,8 @@ RUN --mount=type=tmpfs,target=/tmp \
 FROM base AS final
 ENV S6_LOGGING=0
 
+RUN useradd --system --no-create-home ocserv
+
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log \
