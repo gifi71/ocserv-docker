@@ -1,4 +1,4 @@
 #!/command/execlineb -P
 
 foreground { echo [INFO] ocserv starting }
-foreground { /opt/ocserv/sbin/ocserv -f -c /etc/ocserv/ocserv.conf }
+/opt/ocserv/sbin/ocserv -f -c /etc/ocserv/ocserv.conf
