@@ -3,15 +3,14 @@ set -e
 
 echo "[INFO] Firewall configuration started"
 
-if [ -n "${VPN_NETWORK:-}" ]; then
-  echo "[INFO] Enabling NAT forwarding for VPN subnet ${VPN_NETWORK}..."
-  iptables -t nat -C POSTROUTING -s "$VPN_NETWORK" -j MASQUERADE 2>/dev/null \
-    || iptables -t nat -A POSTROUTING -s "$VPN_NETWORK" -j MASQUERADE
-else
-  echo "[WARN] VPN_NETWORK not set, using broad MASQUERADE rule"
-  iptables -t nat -C POSTROUTING -j MASQUERADE 2>/dev/null \
-    || iptables -t nat -A POSTROUTING -j MASQUERADE
+if [ -z "${VPN_NETWORK:-}" ]; then
+  echo "[ERROR] VPN_NETWORK is not set. Refusing to create a broad MASQUERADE rule." >&2
+  exit 1
 fi
+
+echo "[INFO] Enabling NAT forwarding for VPN subnet ${VPN_NETWORK}..."
+iptables -t nat -C POSTROUTING -s "$VPN_NETWORK" -j MASQUERADE 2>/dev/null \
+  || iptables -t nat -A POSTROUTING -s "$VPN_NETWORK" -j MASQUERADE
 
 iptables -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null \
   || iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu

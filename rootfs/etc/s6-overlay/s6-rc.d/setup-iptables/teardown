@@ -5,8 +5,6 @@ echo "[INFO] Firewall teardown started"
 
 if [ -n "${VPN_NETWORK:-}" ]; then
   iptables -t nat -D POSTROUTING -s "$VPN_NETWORK" -j MASQUERADE 2>/dev/null || true
-else
-  iptables -t nat -D POSTROUTING -j MASQUERADE 2>/dev/null || true
 fi
 
 iptables -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true
