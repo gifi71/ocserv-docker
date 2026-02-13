@@ -69,7 +69,7 @@ ocserv-docker/
 │   ├── usr/local/bin/         # Scripts (healthcheck)
 │   └── etc/s6-overlay/        # s6 service definitions
 ├── .dockerignore
-├── .env                       # Environment variables for Compose
+├── .env.example               # Environment variables template for Compose
 ├── .pre-commit-config.yaml
 ├── docker-compose.yml
 ├── Dockerfile
@@ -121,6 +121,10 @@ Refer to the official ocserv documentation for configuration options:
 # Enable occtl (required for healthcheck and metrics export)
 use-occtl = true
 
+# Drop privileges (the image ships a dedicated ocserv system user)
+run-as-user = ocserv
+run-as-group = ocserv
+
 # Your TLS certificate and key
 server-cert = /etc/ocserv/server-cert.pem
 server-key = /etc/ocserv/server-key.pem
@@ -162,14 +166,19 @@ net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr
 ```
 
-### 5. Edit `.env` (optional)
+### 5. Configure Environment Variables
 
-| Variable            | Description                                  | Default           |
-| ------------------- | -------------------------------------------- | ----------------- |
-| `EXPORTER_ENABLED`  | Enable `ocserv-exporter` for Prometheus      | `0`               |
-| `EXPORTER_INTERVAL` | Scrape interval for exporter                 | `30s`             |
-| `EXPORTER_BIND`     | Exporter listen address                      | `127.0.0.1:8000`  |
-| `VPN_NETWORK`       | Restrict NAT MASQUERADE to this CIDR subnet  | *(broad rule)*    |
+```bash
+cp .env.example .env
+nano .env
+```
+
+| Variable            | Required | Description                                         | Default           |
+| ------------------- | -------- | --------------------------------------------------- | ----------------- |
+| `VPN_NETWORK`       | **yes**  | NAT MASQUERADE CIDR (must match ocserv ipv4-network)| —                 |
+| `EXPORTER_ENABLED`  | no       | Enable `ocserv-exporter` for Prometheus             | `0`               |
+| `EXPORTER_INTERVAL` | no       | Scrape interval for exporter                        | `30s`             |
+| `EXPORTER_BIND`     | no       | Exporter listen address                             | `127.0.0.1:8000`  |
 
 ---
 
@@ -178,6 +187,7 @@ net.ipv4.tcp_congestion_control = bbr
 ### Using Docker Compose
 
 ```bash
+cp .env.example .env   # edit .env with your values
 docker compose up -d
 ```
 
@@ -199,7 +209,7 @@ docker run -d \
   --env-file .env \
   -v "$(pwd)/config:/etc/ocserv:ro" \
   --security-opt no-new-privileges \
-  ghcr.io/gifi71/ocserv-docker:0.1.0
+  ghcr.io/gifi71/ocserv-docker:latest
 ```
 
 ### Building Locally
@@ -240,7 +250,7 @@ docker run -d \
   --env-file .env \
   -v "$(pwd)/config:/etc/ocserv:ro" \
   --security-opt no-new-privileges \
-  ghcr.io/gifi71/ocserv-docker:0.1.0
+  ghcr.io/gifi71/ocserv-docker:latest
 ```
 
 ---
