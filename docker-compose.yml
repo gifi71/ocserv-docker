@@ -2,7 +2,7 @@
 
 services:
   ocserv:
-    image: ghcr.io/gifi71/ocserv-docker:0.1.0
+    image: ghcr.io/gifi71/ocserv-docker:${IMAGE_TAG:-latest}
     container_name: ocserv
     restart: unless-stopped
 
