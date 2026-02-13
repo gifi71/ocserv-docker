@@ -14,7 +14,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/cache/debconf \
     --mount=type=tmpfs,target=/run \
     --mount=type=tmpfs,target=/tmp \
-    set -x \
+    set -ex \
  && apt-get update \
  && apt-get install -y --no-install-recommends --no-install-suggests \
     wget ca-certificates
@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/cache/debconf \
     --mount=type=tmpfs,target=/run \
     --mount=type=tmpfs,target=/tmp \
-    set -x \
+    set -ex \
  && apt-get install -y --no-install-recommends --no-install-suggests \
     xz-utils
 
@@ -85,7 +85,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/cache/debconf \
     --mount=type=tmpfs,target=/run \
     --mount=type=tmpfs,target=/tmp \
-    set -x \
+    set -ex \
  && apt-get update \
  && apt-get install -y --no-install-recommends --no-install-suggests \
     build-essential pkg-config wget ca-certificates \
@@ -101,7 +101,7 @@ WORKDIR /tmp
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN --mount=type=tmpfs,target=/tmp \
-    set -x \
+    set -ex \
  && mkdir -p /opt/ocserv \
  && wget -q "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz" \
  && wget -q "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz.sig" \
@@ -125,7 +125,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/cache/debconf \
     --mount=type=tmpfs,target=/run \
     --mount=type=tmpfs,target=/tmp \
-    set -x \
+    set -ex \
  && apt-get update \
  && apt-get upgrade -y -qq \
  && apt-get install -y --no-install-recommends --no-install-suggests \
