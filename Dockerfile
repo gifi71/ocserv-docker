@@ -96,7 +96,7 @@ WORKDIR /tmp
 RUN --mount=type=tmpfs,target=/tmp \
     set -x \
  && mkdir -p /opt/ocserv \
- && wget https://ocserv.openconnect-vpn.net/assets/keys/96865171.asc \
+ && wget --no-check-certificate https://ocserv.openconnect-vpn.net/assets/keys/96865171.asc \
  && wget https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz \
  && wget https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz.sig \
  && gpg --no-default-keyring --keyring ${PWD}/keyring.gpg --import 96865171.asc \
