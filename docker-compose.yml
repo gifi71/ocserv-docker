@@ -1,5 +1,3 @@
----
-
 services:
   ocserv:
     image: ghcr.io/gifi71/ocserv-docker:${IMAGE_TAG:-latest}
@@ -13,17 +11,11 @@ services:
     network_mode: host
 
     env_file:
-      - .env  # copy from .env.example
+      - .env
     volumes:
       - ./config:/etc/ocserv:ro
     security_opt:
       - no-new-privileges
-
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 
     ## Bridge mode (alternative to network_mode: host):
     ## Comment out 'network_mode: host' and uncomment the following:
