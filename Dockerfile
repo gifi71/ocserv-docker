@@ -142,6 +142,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
  && apt-get update \
  && apt-get install -y --no-install-recommends --no-install-suggests \
     libgnutls30 libev4 libpam0g libtalloc2 libradcli4 liboath0 \
+    libcurl3-gnutls libcjose0 libjansson4 \
     libprotobuf-c1 libgssapi-krb5-2 libreadline8 \
     libnl-3-200 libnl-route-3-200 \
     iproute2 iptables bash
@@ -157,6 +158,6 @@ EXPOSE 443/tcp
 EXPOSE 443/udp
 EXPOSE 8000/tcp
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD /usr/local/bin/healthcheck.sh
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD ["healthcheck.sh"]
 
 ENTRYPOINT ["/init"]
