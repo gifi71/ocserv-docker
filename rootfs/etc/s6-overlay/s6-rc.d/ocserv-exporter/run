@@ -1,5 +1,10 @@
 #!/command/with-contenv bash
 
+if [ "${EXPORTER_ENABLED:-0}" != "1" ]; then
+  echo "[INFO] ocserv-exporter disabled, staying down"
+  s6-svc -Od .
+  exit 0
+fi
+
 echo "[INFO] ocserv-exporter starting"
-export PATH=/opt/ocserv/bin:$PATH
-exec /opt/ocserv-exporter/ocserv-exporter --interval "${EXPORTER_INTERVAL:-30s}" --listen "${EXPORTER_BIND:-127.0.0.1:8000}"
+exec ocserv-exporter --interval "${EXPORTER_INTERVAL:-30s}" --listen "${EXPORTER_BIND:-127.0.0.1:8000}"
