@@ -1,6 +1,6 @@
 ARG S6_OVERLAY_VERSION=3.2.2.0
 ARG OCSERV_VERSION=1.4.0
-ARG OCSERV_EXPORTER_VERSION=0.2.1
+ARG OCSERV_EXPORTER_VERSION=0.2.2
 
 # pin digest for reproducible builds; update periodically
 FROM debian:bookworm-slim@sha256:98f4b71de414932439ac6ac690d7060df1f27161073c5036a7553723881bffbe AS base
@@ -70,14 +70,14 @@ RUN --mount=type=tmpfs,target=/tmp \
  && cd /tmp \
  && wget -q "https://github.com/criteo/ocserv-exporter/releases/download/v${OCSERV_EXPORTER_VERSION}/ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz" \
  && case "$TARGETARCH" in \
-      amd64) CHECKSUM="6c43e795ad6cd32324ccb263de4f0d8b1f703c7602575e8910a62ef476731a34" ;; \
-      arm64) CHECKSUM="36a0de4d62ab759eb176687a035d9a1675323315da71ae9a0d4edbcd17ee49da" ;; \
+      amd64) CHECKSUM="7fdacde71dcf6e9f022c3fa55d7f7d4450dd7fbc3c94cfb5ce8d3fc0c717de5a" ;; \
+      arm64) CHECKSUM="62080f698dfd15fd7ad9f0789c0514e01920415a2ce3e40b721edcf6ac03b16c" ;; \
       *)     echo "Unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
     esac \
  && echo "${CHECKSUM}  ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz" | sha256sum -c \
  && tar -C /ocserv-exporter -xvf "./ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz"
 
-FROM base AS ocserv-builder
+FROM downloader AS ocserv-builder
 ARG OCSERV_VERSION
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -90,7 +90,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     set -ex \
  && apt-get update \
  && apt-get install -y --no-install-recommends --no-install-suggests \
-    build-essential pkg-config wget ca-certificates \
+    build-essential pkg-config \
     libgnutls28-dev libev-dev libreadline-dev libpam0g-dev liblz4-dev \
     libseccomp-dev libnl-route-3-dev libkrb5-dev libradcli-dev \
     libcurl4-gnutls-dev libcjose-dev libjansson-dev liboath-dev libssl-dev \
@@ -118,7 +118,8 @@ RUN --mount=type=tmpfs,target=/tmp \
  && make install
 
 FROM base AS final
-ENV S6_LOGGING=0
+ENV S6_LOGGING=0 \
+    PATH="/opt/ocserv/bin:/opt/ocserv/sbin:/opt/ocserv-exporter:${PATH}"
 
 RUN useradd --system --no-create-home ocserv
 
@@ -136,7 +137,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libgnutls30 libev4 libpam0g libtalloc2 libradcli4 liboath0 \
     libprotobuf-c1 libgssapi-krb5-2 libreadline8 \
     libnl-3-200 libnl-route-3-200 \
-    iproute2 iptables curl bash
+    iproute2 iptables bash
 
 COPY --link --from=s6-builder /s6 /
 COPY --link --from=ocserv-exporter-builder /ocserv-exporter /opt/ocserv-exporter/
