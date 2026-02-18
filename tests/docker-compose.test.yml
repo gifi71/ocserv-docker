@@ -27,7 +27,9 @@ services:
       start_period: 10s
 
   test-runner:
-    image: debian:bookworm-slim
+    build:
+      context: .
+      dockerfile: Dockerfile.test-runner
     container_name: ocserv-test-runner
     depends_on:
       ocserv:

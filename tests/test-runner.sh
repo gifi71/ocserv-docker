@@ -21,10 +21,6 @@ run_test() {
   fi
 }
 
-echo "[test-runner] Installing dependencies..."
-apt-get update -qq && apt-get install -y -qq --no-install-recommends \
-  openconnect openssl curl iproute2 iputils-ping procps >/dev/null 2>&1
-
 echo "[test-runner] Extracting SPKI pin from server certificate..."
 SPKI_PIN=$(openssl x509 -in /etc/ocserv/server-cert.pem -pubkey -noout \
   | openssl pkey -pubin -outform DER \
