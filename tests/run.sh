@@ -43,8 +43,9 @@ chmod 600 "$TMPDIR_TEST/server-key.pem"
 echo "[test] Creating test user via ocpasswd..."
 docker run --rm -i \
   -v "$TMPDIR_TEST:/etc/ocserv" \
+  --entrypoint sh \
   "$IMAGE:$TAG" \
-  sh -c 'printf "testpass123\ntestpass123\n" | ocpasswd -c /etc/ocserv/ocpasswd testuser'
+  -c 'printf "testpass123\ntestpass123\n" | ocpasswd -c /etc/ocserv/ocpasswd testuser'
 
 echo "[test] Starting ocserv and test-runner..."
 docker compose -f "$COMPOSE_FILE" up \
