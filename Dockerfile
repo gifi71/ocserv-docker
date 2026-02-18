@@ -8,6 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
 FROM base AS downloader
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log \
@@ -25,6 +26,7 @@ ARG S6_OVERLAY_VERSION
 ARG TARGETARCH
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log \
@@ -38,6 +40,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 WORKDIR /s6
 
+# hadolint ignore=DL3003
 RUN --mount=type=tmpfs,target=/tmp \
     set -xue \
  && cd /tmp \
@@ -65,6 +68,7 @@ ARG TARGETARCH
 WORKDIR /ocserv-exporter
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# hadolint ignore=DL3003
 RUN --mount=type=tmpfs,target=/tmp \
     set -xue \
  && cd /tmp \
@@ -80,6 +84,7 @@ RUN --mount=type=tmpfs,target=/tmp \
 FROM downloader AS ocserv-builder
 ARG OCSERV_VERSION
 
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log \
@@ -100,6 +105,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 COPY ./keys/96865171.asc /usr/local/share/96865171.asc
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# hadolint ignore=DL3003
 RUN --mount=type=tmpfs,target=/tmp \
     set -ex \
  && cd /tmp \
@@ -124,6 +130,7 @@ ENV S6_LOGGING=0 \
 RUN useradd --system --no-create-home ocserv
 
 # Only direct runtime deps; transitive libs (libnettle, libgmp, etc.) are pulled by apt automatically
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log \
