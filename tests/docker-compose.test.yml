@@ -1,0 +1,52 @@
+services:
+  ocserv:
+    image: ${IMAGE:-ghcr.io/gifi71/ocserv-docker}:${TAG:-latest}
+    container_name: ocserv-test
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    environment:
+      VPN_NETWORK: "192.168.99.0/24"
+      EXPORTER_ENABLED: "1"
+      EXPORTER_BIND: "0.0.0.0:8000"
+    volumes:
+      - ${TEST_CONFIG_DIR}:/etc/ocserv:ro
+    security_opt:
+      - no-new-privileges
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    networks:
+      testnet:
+        ipv4_address: 172.30.0.10
+    healthcheck:
+      test: ["CMD", "occtl", "show", "status"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  test-runner:
+    image: debian:bookworm-slim
+    container_name: ocserv-test-runner
+    depends_on:
+      ocserv:
+        condition: service_healthy
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ${TEST_CONFIG_DIR}:/etc/ocserv:ro
+      - ./:/tests:ro
+    networks:
+      testnet:
+        ipv4_address: 172.30.0.20
+    command: /tests/test-runner.sh
+
+networks:
+  testnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
