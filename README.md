@@ -283,7 +283,7 @@ pre-commit install
 
 ## License
 
-This project includes `ocserv`, licensed under [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.html). All derivative works must also be distributed under GPLv3.
+This project includes `ocserv`, licensed under [GNU GPLv2](https://www.gnu.org/licenses/gpl-2.0.html). The Dockerfile, scripts, and configuration in this repository are independent works (aggregation, not derivative) and may be licensed separately.
 
 ---
 
