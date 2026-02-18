@@ -1,5 +1,4 @@
 #!/command/with-contenv bash
-# shellcheck disable=SC1008
 
 MAX_CRASHES=5
 CRASH_FILE=/tmp/ocserv-crash-count

@@ -1,4 +1,4 @@
 #!/command/with-contenv bash
 
 echo "[INFO] ocserv starting"
-exec /opt/ocserv/sbin/ocserv -f -c /etc/ocserv/ocserv.conf
+exec ocserv -f -c /etc/ocserv/ocserv.conf
