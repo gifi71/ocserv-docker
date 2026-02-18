@@ -125,6 +125,7 @@ RUN --mount=type=tmpfs,target=/tmp \
 
 FROM base AS final
 ENV S6_LOGGING=0 \
+    S6_VERBOSITY=0 \
     PATH="/opt/ocserv/bin:/opt/ocserv/sbin:/opt/ocserv-exporter:${PATH}"
 
 RUN useradd --system --no-create-home ocserv
