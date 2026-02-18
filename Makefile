@@ -4,7 +4,7 @@ PLATFORM := linux/amd64,linux/arm64
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build build-multiarch push lint clean
+.PHONY: help build build-multiarch push lint test clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -20,6 +20,9 @@ push: ## Push the image to GHCR
 
 lint: ## Run all linters via pre-commit
 	pre-commit run --all-files
+
+test: build ## Run integration tests
+	IMAGE=$(IMAGE) TAG=$(TAG) tests/run.sh
 
 clean: ## Remove the built image
 	docker rmi $(IMAGE):$(TAG) 2>/dev/null || true
