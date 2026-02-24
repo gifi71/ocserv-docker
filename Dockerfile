@@ -2,11 +2,14 @@ ARG S6_OVERLAY_VERSION=3.2.2.0
 ARG OCSERV_VERSION=1.4.0
 ARG OCSERV_EXPORTER_VERSION=0.2.2
 
-# pin digest for reproducible builds; update periodically
+# ── Base image ────────────────────────────────────────────────────────────────
+# Pin digest for reproducible builds; update periodically
 FROM debian:bookworm-slim@sha256:98f4b71de414932439ac6ac690d7060df1f27161073c5036a7553723881bffbe AS base
 ENV DEBIAN_FRONTEND=noninteractive
+# Keep apt cache between runs for BuildKit cache mounts
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
+# ── Downloader (shared by all builder stages) ─────────────────────────────────
 FROM base AS downloader
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -21,6 +24,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
  && apt-get install -y --no-install-recommends --no-install-suggests \
     wget ca-certificates
 
+# ── s6-overlay ────────────────────────────────────────────────────────────────
+# Download and verify s6-overlay init system (noarch + arch-specific)
 FROM downloader AS s6-builder
 ARG S6_OVERLAY_VERSION
 ARG TARGETARCH
@@ -59,8 +64,11 @@ RUN --mount=type=tmpfs,target=/tmp \
  && tar -C /s6 -Jxpf ./s6-overlay-noarch.tar.xz \
  && tar -C /s6 -Jxpf "./s6-overlay-${S6_ARCH}.tar.xz"
 
+# Overlay s6-rc service definitions from the repo
 COPY ./rootfs/ /s6/
 
+# ── ocserv-exporter (Prometheus metrics) ──────────────────────────────────────
+# Pre-built Go binary; verified by pinned SHA-256 checksums
 FROM downloader AS ocserv-exporter-builder
 ARG OCSERV_EXPORTER_VERSION
 ARG TARGETARCH
@@ -81,9 +89,11 @@ RUN --mount=type=tmpfs,target=/tmp \
  && echo "${CHECKSUM}  ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz" | sha256sum -c \
  && tar -C /ocserv-exporter -xvf "./ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz"
 
+# ── ocserv (compiled from source with OIDC support) ──────────────────────────
 FROM downloader AS ocserv-builder
 ARG OCSERV_VERSION
 
+# Build dependencies (not carried into the final image)
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -104,6 +114,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY ./keys/96865171.asc /usr/local/share/96865171.asc
 
+# Download, verify GPG signature, compile and install to /opt/ocserv
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # hadolint ignore=DL3003
 RUN --mount=type=tmpfs,target=/tmp \
@@ -123,6 +134,7 @@ RUN --mount=type=tmpfs,target=/tmp \
  && make -j"$(nproc)" \
  && make install
 
+# ── Final image ───────────────────────────────────────────────────────────────
 FROM base AS final
 ENV S6_LOGGING=0 \
     S6_VERBOSITY=0 \
@@ -130,7 +142,7 @@ ENV S6_LOGGING=0 \
 
 RUN useradd --system --no-create-home ocserv
 
-# Only direct runtime deps; transitive libs (libnettle, libgmp, etc.) are pulled by apt automatically
+# Runtime-only libs; transitive deps (libnettle, libgmp, etc.) are pulled by apt
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -148,6 +160,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libnl-3-200 libnl-route-3-200 \
     iproute2 iptables bash
 
+# Copy artifacts from builder stages (--link enables independent layer caching)
 COPY --link --from=s6-builder /s6 /
 COPY --link --from=ocserv-exporter-builder /ocserv-exporter /opt/ocserv-exporter/
 COPY --link --from=ocserv-builder /opt/ocserv /opt/ocserv
