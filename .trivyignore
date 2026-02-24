@@ -1,0 +1,7 @@
+# TODO: remove when Debian releases a patched zlib1g package
+# Affects minizip's zipOpenNewFileInZip4_64, not used by ocserv
+CVE-2023-45853
+
+# TODO: remove when criteo/ocserv-exporter releases a build with Go >= 1.25.7
+# TLS session resumption bug in Go stdlib bundled in pre-built exporter binary
+CVE-2025-68121
