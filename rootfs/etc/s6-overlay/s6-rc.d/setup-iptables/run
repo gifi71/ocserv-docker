@@ -13,15 +13,22 @@ if [ "$(cat /proc/sys/net/ipv4/ip_forward)" != "1" ]; then
 fi
 
 echo "[INFO] Enabling NAT forwarding for VPN subnet ${VPN_NETWORK}..."
+
+# Each rule uses -C (check) || -A (append) to stay idempotent on container restart
+
+# NAT: VPN clients → internet
 iptables -t nat -C POSTROUTING -s "$VPN_NETWORK" -j MASQUERADE 2>/dev/null \
   || iptables -t nat -A POSTROUTING -s "$VPN_NETWORK" -j MASQUERADE
 
+# Allow forwarded traffic from VPN clients
 iptables -C FORWARD -s "$VPN_NETWORK" -j ACCEPT 2>/dev/null \
   || iptables -A FORWARD -s "$VPN_NETWORK" -j ACCEPT
 
+# Allow reply traffic back to VPN clients
 iptables -C FORWARD -d "$VPN_NETWORK" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
   || iptables -A FORWARD -d "$VPN_NETWORK" -m state --state RELATED,ESTABLISHED -j ACCEPT
 
+# Clamp MSS to path MTU to avoid fragmentation inside the tunnel
 iptables -C FORWARD -s "$VPN_NETWORK" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null \
   || iptables -A FORWARD -s "$VPN_NETWORK" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
