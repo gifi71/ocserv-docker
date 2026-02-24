@@ -1,4 +1,4 @@
-#!/command/execlineb -P
+#!/command/with-contenv bash
 
-foreground { echo [INFO] ocserv starting }
-foreground { /opt/ocserv/sbin/ocserv -f -c /etc/ocserv/ocserv.conf }
+echo "[INFO] ocserv starting"
+exec ocserv -f -c /etc/ocserv/ocserv.conf

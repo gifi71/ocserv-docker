@@ -3,29 +3,36 @@ set -e
 
 echo "[INFO] Firewall configuration started"
 
-if [ -n "$PORTS" ]; then
-  echo "[INFO] Enabling port forwarding (TCP & UDP)..."
-
-  for rule in $PORTS; do
-    HOST_PORT=$(echo "$rule" | cut -d: -f1)
-    CLIENT_IP=$(echo "$rule" | cut -d: -f2)
-    CLIENT_PORT=$(echo "$rule" | cut -d: -f3)
-
-    echo "[INFO] Forwarding $HOST_PORT -> $CLIENT_IP:$CLIENT_PORT"
-
-    iptables -t nat -A PREROUTING -p tcp --dport "$HOST_PORT" -j DNAT --to-destination "$CLIENT_IP:$CLIENT_PORT"
-    iptables -t nat -A PREROUTING -p udp --dport "$HOST_PORT" -j DNAT --to-destination "$CLIENT_IP:$CLIENT_PORT"
-
-    iptables -t nat -A POSTROUTING -p tcp -d "$CLIENT_IP" --dport "$CLIENT_PORT" -j MASQUERADE
-    iptables -t nat -A POSTROUTING -p udp -d "$CLIENT_IP" --dport "$CLIENT_PORT" -j MASQUERADE
-  done
-
-else
-  echo "[INFO] PORTS is not set — skipping port forwarding"
+if [ -z "${VPN_NETWORK:-}" ]; then
+  echo "[ERROR] VPN_NETWORK is not set. Refusing to create a broad MASQUERADE rule." >&2
+  exit 1
 fi
 
-echo "[INFO] Enabling NAT forwarding..."
-iptables -t nat -A POSTROUTING -j MASQUERADE
-iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+if [ "$(cat /proc/sys/net/ipv4/ip_forward)" != "1" ]; then
+  echo "[WARN] net.ipv4.ip_forward is disabled, VPN clients won't reach external networks" >&2
+fi
 
-echo "[INFO] The firewall is configured"
+echo "[INFO] Enabling NAT forwarding for VPN subnet ${VPN_NETWORK}..."
+
+# Each rule uses -C (check) || -A (append) to stay idempotent on container restart
+
+# NAT: VPN clients → internet
+iptables -t nat -C POSTROUTING -s "$VPN_NETWORK" -j MASQUERADE 2>/dev/null \
+  || iptables -t nat -A POSTROUTING -s "$VPN_NETWORK" -j MASQUERADE
+
+# Allow forwarded traffic from VPN clients
+iptables -C FORWARD -s "$VPN_NETWORK" -j ACCEPT 2>/dev/null \
+  || iptables -A FORWARD -s "$VPN_NETWORK" -j ACCEPT
+
+# Allow reply traffic back to VPN clients
+iptables -C FORWARD -d "$VPN_NETWORK" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
+  || iptables -A FORWARD -d "$VPN_NETWORK" -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+# Clamp MSS to path MTU to avoid fragmentation inside the tunnel
+iptables -C FORWARD -s "$VPN_NETWORK" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null \
+  || iptables -A FORWARD -s "$VPN_NETWORK" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+
+iptables -C FORWARD -d "$VPN_NETWORK" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null \
+  || iptables -A FORWARD -d "$VPN_NETWORK" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+
+echo "[INFO] Firewall configured"

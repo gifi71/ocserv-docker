@@ -1,0 +1,70 @@
+name: Scheduled Vulnerability Scan
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@c1824fd6edce30d7ab345a9989de00bbd46ef284 # 0.34.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@9e907b5e64f6b83e7804b09294d44122997950d6 # v4.32.3
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Check for critical vulnerabilities
+        id: check
+        uses: aquasecurity/trivy-action@c1824fd6edce30d7ab345a9989de00bbd46ef284 # 0.34.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: table
+          output: trivy-results.txt
+          severity: CRITICAL
+          exit-code: '1'
+        continue-on-error: true
+
+      - name: Create issue on critical vulnerabilities
+        if: steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY="## Trivy Scan Results
+
+          Critical vulnerabilities were detected in the \`latest\` image during the scheduled weekly scan.
+
+          <details>
+          <summary>Scan output</summary>
+
+          \`\`\`
+          $(cat trivy-results.txt)
+          \`\`\`
+
+          </details>
+
+          Please review and update the base image or affected packages."
+          gh issue create \
+            --title "Critical vulnerabilities found in latest image" \
+            --body "$BODY" \
+            --label "security"

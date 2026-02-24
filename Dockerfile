@@ -1,14 +1,17 @@
-ARG S6_OVERLAY_VERSION=3.2.1.0
-ARG OCSERV_VERSION=1.3.0
-ARG OCSERV_EXPORTER_VERSION=0.2.1
+ARG S6_OVERLAY_VERSION=3.2.2.0
+ARG OCSERV_VERSION=1.4.0
+ARG OCSERV_EXPORTER_VERSION=0.2.2
 
-FROM debian:bookworm-slim AS base
+# ── Base image ────────────────────────────────────────────────────────────────
+# Pin digest for reproducible builds; update periodically
+FROM debian:bookworm-slim@sha256:98f4b71de414932439ac6ac690d7060df1f27161073c5036a7553723881bffbe AS base
 ENV DEBIAN_FRONTEND=noninteractive
+# Keep apt cache between runs for BuildKit cache mounts
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
-FROM base AS s6-builder
-ARG S6_OVERLAY_VERSION
-
+# ── Downloader (shared by all builder stages) ─────────────────────────────────
+FROM base AS downloader
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log \
@@ -16,51 +19,82 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/cache/debconf \
     --mount=type=tmpfs,target=/run \
     --mount=type=tmpfs,target=/tmp \
-    set -x \
+    set -ex \
  && apt-get update \
- && apt-get upgrade -y -qq \
- && apt-get install -y --no-install-recommends --no-install-suggests \
-    wget ca-certificates xz-utils
-
-WORKDIR /s6
-
-RUN --mount=type=tmpfs,target=/tmp \
-    set -xue \
- && cd /tmp \
- && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz \
- && wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz \
- && tar -C /s6 -Jxpf ./s6-overlay-noarch.tar.xz \
- && tar -C /s6 -Jxpf ./s6-overlay-x86_64.tar.xz
-
-COPY ./rootfs/ /s6/
-
-FROM base AS ocserv-exporter-builder
-ARG OCSERV_EXPORTER_VERSION
-
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    --mount=type=tmpfs,target=/var/log \
-    --mount=type=tmpfs,target=/var/tmp \
-    --mount=type=tmpfs,target=/var/cache/debconf \
-    --mount=type=tmpfs,target=/run \
-    --mount=type=tmpfs,target=/tmp \
-    set -x \
- && apt-get update \
- && apt-get upgrade -y -qq \
  && apt-get install -y --no-install-recommends --no-install-suggests \
     wget ca-certificates
 
-WORKDIR /ocserv-exporter
+# ── s6-overlay ────────────────────────────────────────────────────────────────
+# Download and verify s6-overlay init system (noarch + arch-specific)
+FROM downloader AS s6-builder
+ARG S6_OVERLAY_VERSION
+ARG TARGETARCH
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# hadolint ignore=DL3008
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    --mount=type=tmpfs,target=/var/log \
+    --mount=type=tmpfs,target=/var/tmp \
+    --mount=type=tmpfs,target=/var/cache/debconf \
+    --mount=type=tmpfs,target=/run \
+    --mount=type=tmpfs,target=/tmp \
+    set -ex \
+ && apt-get install -y --no-install-recommends --no-install-suggests \
+    xz-utils
+
+WORKDIR /s6
+
+# hadolint ignore=DL3003
 RUN --mount=type=tmpfs,target=/tmp \
     set -xue \
  && cd /tmp \
- && wget https://github.com/criteo/ocserv-exporter/releases/download/v${OCSERV_EXPORTER_VERSION}/ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_amd64.tar.gz \
- && tar -C /ocserv-exporter -xvf ./ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_amd64.tar.gz
+ && case "$TARGETARCH" in \
+      amd64) S6_ARCH="x86_64" ;; \
+      arm64) S6_ARCH="aarch64" ;; \
+      arm)   S6_ARCH="arm" ;; \
+      *)     S6_ARCH="$TARGETARCH" ;; \
+    esac \
+ && wget -q "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" \
+ && wget -q "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz.sha256" \
+ && wget -q "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz" \
+ && wget -q "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz.sha256" \
+ && sha256sum -c s6-overlay-noarch.tar.xz.sha256 \
+ && sha256sum -c "s6-overlay-${S6_ARCH}.tar.xz.sha256" \
+ && tar -C /s6 -Jxpf ./s6-overlay-noarch.tar.xz \
+ && tar -C /s6 -Jxpf "./s6-overlay-${S6_ARCH}.tar.xz"
 
-FROM base AS ocserv-builder
+# Overlay s6-rc service definitions from the repo
+COPY ./rootfs/ /s6/
+
+# ── ocserv-exporter (Prometheus metrics) ──────────────────────────────────────
+# Pre-built Go binary; verified by pinned SHA-256 checksums
+FROM downloader AS ocserv-exporter-builder
+ARG OCSERV_EXPORTER_VERSION
+ARG TARGETARCH
+
+WORKDIR /ocserv-exporter
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# hadolint ignore=DL3003
+RUN --mount=type=tmpfs,target=/tmp \
+    set -xue \
+ && cd /tmp \
+ && wget -q "https://github.com/criteo/ocserv-exporter/releases/download/v${OCSERV_EXPORTER_VERSION}/ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz" \
+ && case "$TARGETARCH" in \
+      amd64) CHECKSUM="7fdacde71dcf6e9f022c3fa55d7f7d4450dd7fbc3c94cfb5ce8d3fc0c717de5a" ;; \
+      arm64) CHECKSUM="62080f698dfd15fd7ad9f0789c0514e01920415a2ce3e40b721edcf6ac03b16c" ;; \
+      *)     echo "Unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+ && echo "${CHECKSUM}  ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz" | sha256sum -c \
+ && tar -C /ocserv-exporter -xvf "./ocserv-exporter_${OCSERV_EXPORTER_VERSION}_linux_${TARGETARCH}.tar.gz"
+
+# ── ocserv (compiled from source with OIDC support) ──────────────────────────
+FROM downloader AS ocserv-builder
 ARG OCSERV_VERSION
 
+# Build dependencies (not carried into the final image)
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log \
@@ -68,36 +102,48 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/cache/debconf \
     --mount=type=tmpfs,target=/run \
     --mount=type=tmpfs,target=/tmp \
-    set -x \
+    set -ex \
  && apt-get update \
- && apt-get upgrade -y -qq \
  && apt-get install -y --no-install-recommends --no-install-suggests \
-    build-essential pkg-config wget ca-certificates \
+    build-essential pkg-config \
     libgnutls28-dev libev-dev libreadline-dev libpam0g-dev liblz4-dev \
     libseccomp-dev libnl-route-3-dev libkrb5-dev libradcli-dev \
-    libcurl4-gnutls-dev libcjose-dev libjansson-dev liboath-dev \
-    libprotobuf-c-dev libtalloc-dev libhttp-parser-dev \
+    libcurl4-gnutls-dev libcjose-dev libjansson-dev liboath-dev libssl-dev \
+    libprotobuf-c-dev libtalloc-dev \
     protobuf-c-compiler gperf ipcalc-ng gpg gpg-agent
 
-WORKDIR /tmp
+COPY ./keys/96865171.asc /usr/local/share/96865171.asc
 
+# Download, verify GPG signature, compile and install to /opt/ocserv
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# hadolint ignore=DL3003
 RUN --mount=type=tmpfs,target=/tmp \
-    set -x \
+    set -ex \
+ && cd /tmp \
  && mkdir -p /opt/ocserv \
- && wget https://ocserv.openconnect-vpn.net/assets/keys/96865171.asc \
- && wget https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz \
- && wget https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz.sig \
- && gpg --no-default-keyring --keyring ${PWD}/keyring.gpg --import 96865171.asc \
- && gpg -v --status-fd 1 --no-default-keyring --keyring ${PWD}/keyring.gpg --verify ocserv-${OCSERV_VERSION}.tar.xz.sig 2>&1 | grep "VALIDSIG" \
- && tar xf ocserv-${OCSERV_VERSION}.tar.xz \
- && cd ocserv-${OCSERV_VERSION} \
- && ./configure --prefix=/opt/ocserv \
+ && wget -q "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz" \
+ && wget -q "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz.sig" \
+ && gpg --no-default-keyring --keyring "${PWD}/keyring.gpg" --import /usr/local/share/96865171.asc \
+ && gpg --no-default-keyring --keyring "${PWD}/keyring.gpg" \
+        --status-file gpg-status.txt \
+        --verify "ocserv-${OCSERV_VERSION}.tar.xz.sig" "ocserv-${OCSERV_VERSION}.tar.xz" \
+ && grep -q "^\[GNUPG:\] VALIDSIG 1F42418905D8206AA754CCDC29EE58B996865171" gpg-status.txt \
+ && tar xf "ocserv-${OCSERV_VERSION}.tar.xz" \
+ && cd "ocserv-${OCSERV_VERSION}" \
+ && ./configure --prefix=/opt/ocserv --enable-oidc-auth \
  && make -j"$(nproc)" \
  && make install
 
+# ── Final image ───────────────────────────────────────────────────────────────
 FROM base AS final
-ENV S6_LOGGING=0
+ENV S6_LOGGING=0 \
+    S6_VERBOSITY=0 \
+    PATH="/opt/ocserv/bin:/opt/ocserv/sbin:/opt/ocserv-exporter:${PATH}"
 
+RUN useradd --system --no-create-home ocserv
+
+# Runtime-only libs; transitive deps (libnettle, libgmp, etc.) are pulled by apt
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log \
@@ -105,28 +151,27 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/cache/debconf \
     --mount=type=tmpfs,target=/run \
     --mount=type=tmpfs,target=/tmp \
-    set -x \
+    set -ex \
  && apt-get update \
- && apt-get upgrade -y -qq \
  && apt-get install -y --no-install-recommends --no-install-suggests \
     libgnutls30 libev4 libpam0g libtalloc2 libradcli4 liboath0 \
-    libprotobuf-c1 libgssapi-krb5-2 libk5crypto3 libkrb5-3 \
-    libcom-err2 libkeyutils1 libidn2-0 libp11-kit0 libnettle8 \
-    libhogweed6 libgmp10 libtasn1-6 libffi8 libcap-ng0 libcrypt1 \
-    libunistring2 libaudit1 libreadline8 libnl-3-200 libnl-route-3-200 \
-    iproute2 iptables less curl bash \
- && apt purge --yes --auto-remove
+    libcurl3-gnutls libcjose0 libjansson4 \
+    libprotobuf-c1 libgssapi-krb5-2 libreadline8 \
+    libnl-3-200 libnl-route-3-200 \
+    iproute2 iptables bash
 
+# Copy artifacts from builder stages (--link enables independent layer caching)
 COPY --link --from=s6-builder /s6 /
 COPY --link --from=ocserv-exporter-builder /ocserv-exporter /opt/ocserv-exporter/
 COPY --link --from=ocserv-builder /opt/ocserv /opt/ocserv
 
+# s6-overlay requires root for /init; ocserv drops privileges via its own config
 WORKDIR /etc/ocserv
 
 EXPOSE 443/tcp
 EXPOSE 443/udp
 EXPOSE 8000/tcp
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD /usr/local/bin/healthcheck.sh
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD ["healthcheck.sh"]
 
 ENTRYPOINT ["/init"]

@@ -1,8 +1,6 @@
----
-
 services:
   ocserv:
-    image: ghcr.io/gifi71/ocserv-docker:latest
+    image: ghcr.io/gifi71/ocserv-docker:${IMAGE_TAG:-latest}
     container_name: ocserv
     restart: unless-stopped
 
@@ -10,21 +8,21 @@ services:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
-    sysctls:
-      net.ipv4.ip_forward: "1"
+    network_mode: host
 
-    ports:
-      - "443:443/tcp"
-      - "443:443/udp"
     env_file:
       - .env
     volumes:
       - ./config:/etc/ocserv
+      - ./config/ocserv.conf:/etc/ocserv/ocserv.conf:ro
     security_opt:
       - no-new-privileges
 
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    ## Bridge mode (alternative to network_mode: host):
+    ## Comment out 'network_mode: host' and uncomment the following:
+    # ports:
+    #   - "443:443/tcp"
+    #   - "443:443/udp"
+    #   # - "8000:8000/tcp"  # ocserv-exporter metrics
+    # sysctls:
+    #   net.ipv4.ip_forward: "1"

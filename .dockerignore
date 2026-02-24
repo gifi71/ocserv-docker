@@ -1,2 +1,3 @@
-**
-!rootfs/**
+*
+!rootfs/
+!keys/96865171.asc
