@@ -3,27 +3,14 @@
 <h1 align="center">ocserv-docker</h1>
 
 <p align="center">
-  <a href="https://github.com/gifi71/ocserv-docker/actions/workflows/ci.yml">
-    <img src="https://github.com/gifi71/ocserv-docker/actions/workflows/ci.yml/badge.svg" alt="CI" />
-  </a>
-  <a href="https://github.com/gifi71/ocserv-docker/actions/workflows/scheduled-scan.yml">
-    <img src="https://github.com/gifi71/ocserv-docker/actions/workflows/scheduled-scan.yml/badge.svg" alt="VulnScan" />
-  </a>
-  <a href="https://github.com/gifi71/ocserv-docker/tags">
-    <img src="https://img.shields.io/github/v/tag/gifi71/ocserv-docker" alt="tag" />
-  </a>
-  <a href="https://github.com/gifi71/ocserv-docker/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/gifi71/ocserv-docker" alt="license" />
-  </a>
-  <a href="https://github.com/gifi71/ocserv-docker/search?l=dockerfile">
-    <img src="https://img.shields.io/github/languages/top/gifi71/ocserv-docker" alt="language" />
-  </a>
-  <a href="https://github.com/gifi71/ocserv-docker/commits/main">
-    <img src="https://img.shields.io/github/last-commit/gifi71/ocserv-docker" alt="last commit" />
-  </a>
-  <a href="https://github.com/gifi71/ocserv-docker/stargazers">
-    <img src="https://img.shields.io/github/stars/gifi71/ocserv-docker" alt="stars" />
-  </a>
+  <a href="https://github.com/gifi71/ocserv-docker/tags"><img src="https://img.shields.io/github/v/tag/gifi71/ocserv-docker" alt="tag" /></a>
+  <a href="https://github.com/gifi71/ocserv-docker/actions/workflows/ci.yml"><img src="https://github.com/gifi71/ocserv-docker/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/gifi71/ocserv-docker/actions/workflows/scheduled-scan.yml"><img src="https://github.com/gifi71/ocserv-docker/actions/workflows/scheduled-scan.yml/badge.svg" alt="VulnScan" /></a>
+  <br/>
+  <a href="https://github.com/gifi71/ocserv-docker/blob/main/LICENSE"><img src="https://img.shields.io/github/license/gifi71/ocserv-docker" alt="license" /></a>
+  <a href="https://github.com/gifi71/ocserv-docker/search?l=dockerfile"><img src="https://img.shields.io/github/languages/top/gifi71/ocserv-docker" alt="language" /></a>
+  <a href="https://github.com/gifi71/ocserv-docker/commits/main"><img src="https://img.shields.io/github/last-commit/gifi71/ocserv-docker" alt="last commit" /></a>
+  <a href="https://github.com/gifi71/ocserv-docker/stargazers"><img src="https://img.shields.io/github/stars/gifi71/ocserv-docker" alt="stars" /></a>
 </p>
 
 <!-- markdownlint-enable MD033 -->
