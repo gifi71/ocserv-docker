@@ -2,6 +2,18 @@
 # Affects minizip's zipOpenNewFileInZip4_64, not used by ocserv
 CVE-2023-45853
 
+# TODO: remove when Debian releases a patched libldap package
+# Null pointer deref in OpenLDAP ber_memalloc_x, no fix in Debian 12
+CVE-2023-2953
+
+# TODO: remove when Debian releases a patched glibc package
+# glibc vulnerability, no fix in Debian 12
+CVE-2026-0861
+
 # TODO: remove when criteo/ocserv-exporter releases a build with Go >= 1.25.7
-# TLS session resumption bug in Go stdlib bundled in pre-built exporter binary
+# Go stdlib vulnerabilities bundled in pre-built exporter binary (Go 1.25.4)
 CVE-2025-68121
+CVE-2025-61730
+CVE-2025-61729
+CVE-2025-61728
+CVE-2025-61726
