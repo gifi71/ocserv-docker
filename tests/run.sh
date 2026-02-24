@@ -9,6 +9,7 @@ COMPOSE_FILE="$SCRIPT_DIR/docker-compose.test.yml"
 TMPDIR_TEST=""
 RESULT=1
 
+# shellcheck disable=SC2329  # invoked via trap
 cleanup() {
   echo "[test] Cleaning up..."
   if [ "$RESULT" -ne 0 ]; then
@@ -29,6 +30,7 @@ echo "[test] Creating temp directory for test artifacts..."
 TMPDIR_TEST="$(mktemp -d)"
 export TEST_CONFIG_DIR="$TMPDIR_TEST"
 
+# Generate ephemeral TLS cert with SAN matching the ocserv container's static IP
 echo "[test] Generating self-signed EC certificate..."
 openssl ecparam -genkey -name prime256v1 -out "$TMPDIR_TEST/server-key.pem" 2>/dev/null
 openssl req -new -x509 -key "$TMPDIR_TEST/server-key.pem" \
@@ -40,6 +42,7 @@ echo "[test] Copying test config..."
 cp "$SCRIPT_DIR/ocserv.test.conf" "$TMPDIR_TEST/ocserv.conf"
 chmod 600 "$TMPDIR_TEST/server-key.pem"
 
+# Run ocpasswd from the image itself (bypasses s6 init with --entrypoint sh)
 echo "[test] Creating test user via ocpasswd..."
 docker run --rm -i \
   -v "$TMPDIR_TEST:/etc/ocserv" \

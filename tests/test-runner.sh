@@ -21,6 +21,7 @@ run_test() {
   fi
 }
 
+# SPKI pin lets openconnect verify the server without a CA trust chain
 echo "[test-runner] Extracting SPKI pin from server certificate..."
 SPKI_PIN=$(openssl x509 -in /etc/ocserv/server-cert.pem -pubkey -noout \
   | openssl pkey -pubin -outform DER \
@@ -36,7 +37,7 @@ echo ""
 run_test "TLS connectivity to ${OCSERV_HOST}:${OCSERV_PORT}" \
   openssl s_client -connect "${OCSERV_HOST}:${OCSERV_PORT}" -brief </dev/null
 
-# TEST 2: openconnect VPN tunnel
+# TEST 2: full VPN handshake — connect, authenticate, bring up tunnel
 echo -n "[TEST] VPN tunnel establishment ... "
 OC_LOG="/tmp/openconnect.log"
 echo "testpass123" | openconnect \
