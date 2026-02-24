@@ -4,7 +4,7 @@ ARG OCSERV_EXPORTER_VERSION=0.2.2
 
 # ── Base image ────────────────────────────────────────────────────────────────
 # Pin digest for reproducible builds; update periodically
-FROM debian:bookworm-slim@sha256:98f4b71de414932439ac6ac690d7060df1f27161073c5036a7553723881bffbe AS base
+FROM debian:bookworm-slim@sha256:74d56e3931e0d5a1dd51f8c8a2466d21de84a271cd3b5a733b803aa91abf4421 AS base
 ENV DEBIAN_FRONTEND=noninteractive
 # Keep apt cache between runs for BuildKit cache mounts
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
