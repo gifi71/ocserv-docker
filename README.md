@@ -3,8 +3,11 @@
 <h1 align="center">ocserv-docker</h1>
 
 <p align="center">
-  <a href="https://github.com/gifi71/ocserv-docker/actions/workflows/docker-publish.yml">
-    <img src="https://github.com/gifi71/ocserv-docker/actions/workflows/docker-publish.yml/badge.svg" alt="build" />
+  <a href="https://github.com/gifi71/ocserv-docker/actions/workflows/ci.yml">
+    <img src="https://github.com/gifi71/ocserv-docker/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  </a>
+  <a href="https://github.com/gifi71/ocserv-docker/actions/workflows/scheduled-scan.yml">
+    <img src="https://github.com/gifi71/ocserv-docker/actions/workflows/scheduled-scan.yml/badge.svg" alt="VulnScan" />
   </a>
   <a href="https://github.com/gifi71/ocserv-docker/tags">
     <img src="https://img.shields.io/github/v/tag/gifi71/ocserv-docker" alt="tag" />
@@ -25,265 +28,192 @@
 
 <!-- markdownlint-enable MD033 -->
 
-A containerized [ocserv](https://gitlab.com/openconnect/ocserv/) (OpenConnect VPN server), built from source with GPG signature verification. Uses [s6-overlay](https://github.com/just-containers/s6-overlay) for process supervision and optionally exports Prometheus metrics via [ocserv-exporter](https://github.com/criteo/ocserv-exporter).
+Production-ready [ocserv](https://gitlab.com/openconnect/ocserv/) (OpenConnect VPN server) in Docker. Built from source with GPG verification, supervised by [s6-overlay](https://github.com/just-containers/s6-overlay), with optional Prometheus metrics via [ocserv-exporter](https://github.com/criteo/ocserv-exporter).
+
+**Key highlights:**
+
+- Multi-stage build on `debian:bookworm-slim` — minimal final image, no build toolchain
+- Latest ocserv built from source with OIDC auth support (see [releases](https://github.com/gifi71/ocserv-docker/releases) for version)
+- Multi-architecture support: `amd64`, `arm64`
+- Optional Prometheus metrics via [ocserv-exporter](https://github.com/criteo/ocserv-exporter)
+- Idempotent iptables setup with clean teardown on shutdown
 
 ---
 
-## Table of Contents
-
-- [Features](#features)
-- [Project Structure](#project-structure)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Running](#running)
-- [Network Modes](#network-modes)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
-
----
-
-## Features
-
-- Lightweight image based on `debian:bookworm-slim`
-- Multi-stage Docker build with optimized final image size
-- `ocserv` v1.4.0 built from source with upstream GPG signature verification
-- Multi-architecture support (amd64, arm64)
-- s6-overlay for process supervision and service orchestration
-- Optional Prometheus metrics via `ocserv-exporter`
-- Healthcheck script for `ocserv` and `ocserv-exporter`
-- GitHub Actions CI for build and image signing (cosign)
-- Licensed under GPLv3
-
----
-
-## Project Structure
-
-```plain
-ocserv-docker/
-├── .github/workflows/
-│   └── docker-publish.yml     # CI for Docker image publishing
-├── keys/
-│   └── 96865171.asc           # ocserv GPG signing key
-├── rootfs/
-│   ├── usr/local/bin/         # Scripts (healthcheck)
-│   └── etc/s6-overlay/        # s6 service definitions
-├── .dockerignore
-├── .env.example               # Environment variables template for Compose
-├── .pre-commit-config.yaml
-├── docker-compose.yml
-├── Dockerfile
-├── LICENSE
-├── Makefile
-└── README.md
-```
-
----
-
-## Installation
-
-### 1. Install Docker
+## Quick Start
 
 ```bash
-curl -sSL https://get.docker.com | sh
-```
+git clone https://github.com/gifi71/ocserv-docker.git && cd ocserv-docker
 
-### 2. Clone the Repository
-
-```bash
-git clone https://github.com/gifi71/ocserv-docker.git /opt/ocserv-docker
-cd /opt/ocserv-docker
-```
-
----
-
-## Configuration
-
-### 3. Create ocserv Configuration
-
-This project does **not** ship a default `ocserv.conf`. You must create your own configuration before starting the container.
-
-Create the config directory and your configuration file:
-
-```bash
+# Prepare your config
 mkdir -p config
-nano config/ocserv.conf
+# Place your ocserv.conf, server-cert.pem, server-key.pem in config/
+
+cp .env.example .env
+# Edit .env — set VPN_NETWORK to match your ocserv.conf ipv4-network
+
+docker compose up -d
 ```
 
-Refer to the official ocserv documentation for configuration options:
-- [ocserv manual](https://ocserv.openconnect-vpn.net/ocserv.8.html)
-- [ocserv configuration recipes](https://ocserv.openconnect-vpn.net/recipes.html)
-- [Example config from ocserv source](https://gitlab.com/openconnect/ocserv/-/blob/master/doc/sample.config)
-
-**Required settings for this container to work correctly:**
-
-```conf
-# Enable occtl (required for healthcheck and metrics export)
-use-occtl = true
-
-# Drop privileges (the image ships a dedicated ocserv system user)
-run-as-user = ocserv
-run-as-group = ocserv
-
-# Your TLS certificate and key
-server-cert = /etc/ocserv/server-cert.pem
-server-key = /etc/ocserv/server-key.pem
-```
-
-### Generate TLS Certificates
-
-Using `certtool` (from `gnutls-bin` package):
+Or with `docker run`:
 
 ```bash
-# Generate CA key and certificate
-certtool --generate-privkey --outfile ca-key.pem
-certtool --generate-self-signed --load-privkey ca-key.pem --outfile ca-cert.pem
-
-# Generate server key and certificate
-certtool --generate-privkey --outfile config/server-key.pem
-certtool --generate-certificate \
-  --load-privkey config/server-key.pem \
-  --load-ca-certificate ca-cert.pem \
-  --load-ca-privkey ca-key.pem \
-  --outfile config/server-cert.pem
+docker run -d \
+  --name ocserv \
+  --restart unless-stopped \
+  --cap-add NET_ADMIN \
+  --device /dev/net/tun:/dev/net/tun \
+  --network host \
+  --env-file .env \
+  -v ./config:/etc/ocserv \
+  -v ./config/ocserv.conf:/etc/ocserv/ocserv.conf:ro \
+  --security-opt no-new-privileges \
+  ghcr.io/gifi71/ocserv-docker:latest
 ```
 
-Or use an ACME client (e.g., certbot, acme.sh) for certificates from a public CA.
+---
 
-### 4. Configure Host Networking
+## Requirements
 
-When using the default `network_mode: host`, enable IP forwarding on the host:
+| Requirement | Why |
+| --- | --- |
+| Docker with BuildKit | Multi-stage build, cache mounts |
+| `--cap-add NET_ADMIN` | iptables rules and TUN device creation |
+| `--device /dev/net/tun` | Kernel interface for VPN tunnels |
+| `net.ipv4.ip_forward=1` | Route traffic between VPN clients and the network |
+
+Enable IP forwarding on the host (required for host mode; in bridge mode it is set automatically via `--sysctl`):
 
 ```bash
 echo 'net.ipv4.ip_forward = 1' >> /etc/sysctl.d/99-vpn.conf
 sysctl -p /etc/sysctl.d/99-vpn.conf
 ```
 
-Optional TCP optimizations:
+Optional — improve TCP performance with BBR:
 
-```conf
+```bash
+cat >> /etc/sysctl.d/99-vpn.conf <<'EOF'
 net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr
+EOF
+sysctl -p /etc/sysctl.d/99-vpn.conf
 ```
 
-### 5. Configure Environment Variables
+---
+
+## Configuration
+
+### ocserv.conf
+
+This project **does not ship** a default config. Create your own based on the upstream example:
+
+- [ocserv sample.config](https://gitlab.com/openconnect/ocserv/-/blob/master/doc/sample.config)
+- [ocserv manual](https://ocserv.openconnect-vpn.net/ocserv.8.html)
+- [Configuration recipes](https://ocserv.openconnect-vpn.net/recipes.html)
+
+**Required settings** for this container:
+
+```conf
+# Healthcheck and exporter depend on occtl
+use-occtl = true
+
+# The image ships a dedicated system user
+run-as-user = ocserv
+run-as-group = ocserv
+
+# TLS — mount your certs into /etc/ocserv
+server-cert = /etc/ocserv/server-cert.pem
+server-key = /etc/ocserv/server-key.pem
+```
+
+### TLS Certificates
+
+Use any method you prefer: `certtool`, `openssl`, ACME (certbot, acme.sh), etc. Mount the resulting cert and key into `config/`.
+
+### Environment Variables
 
 ```bash
 cp .env.example .env
-nano .env
 ```
 
-| Variable            | Required | Description                                         | Default           |
-| ------------------- | -------- | --------------------------------------------------- | ----------------- |
-| `VPN_NETWORK`       | **yes**  | NAT MASQUERADE CIDR (must match ocserv ipv4-network)| —                 |
-| `EXPORTER_ENABLED`  | no       | Enable `ocserv-exporter` for Prometheus             | `0`               |
-| `EXPORTER_INTERVAL` | no       | Scrape interval for exporter                        | `30s`             |
-| `EXPORTER_BIND`     | no       | Exporter listen address                             | `127.0.0.1:8000`  |
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `VPN_NETWORK` | **yes** | — | NAT MASQUERADE CIDR, must match `ipv4-network` in ocserv.conf |
+| `EXPORTER_ENABLED` | no | `0` | `1` to enable Prometheus exporter |
+| `EXPORTER_INTERVAL` | no | `30s` | Delay between occtl scrapes |
+| `EXPORTER_BIND` | no | `127.0.0.1:8000` | Exporter HTTP listen address |
 
 ---
 
-## Running
+## Usage
 
-### Using Docker Compose
-
-```bash
-cp .env.example .env   # edit .env with your values
-docker compose up -d
-```
-
-View logs:
+### Docker Compose
 
 ```bash
-docker compose logs -f ocserv
+docker compose up -d        # start
+docker compose logs -f       # logs
+docker compose down          # stop
 ```
 
-### Without Docker Compose (host network mode)
+### Host vs Bridge Mode
+
+**Host mode** (default) — the container shares the host network stack. VPN clients get TUN interfaces visible on the host. The listening ports depend on your `ocserv.conf` and must be free on the host.
+
+**Bridge mode** — isolated network namespace, only forwarded ports are accessible. Edit `docker-compose.yml`: comment out `network_mode: host`, uncomment the `ports`/`sysctls` section.
+
+Bridge mode via `docker run`:
 
 ```bash
 docker run -d \
   --name ocserv \
   --restart unless-stopped \
-  --cap-add=NET_ADMIN \
-  --device /dev/net/tun:/dev/net/tun \
-  --network host \
-  --env-file .env \
-  -v "$(pwd)/config:/etc/ocserv:ro" \
-  --security-opt no-new-privileges \
-  ghcr.io/gifi71/ocserv-docker:latest
-```
-
-### Building Locally
-
-```bash
-make oci-image
-```
-
----
-
-## Network Modes
-
-### Host Mode (default)
-
-The container shares the host's network stack. Each VPN client gets its own tun device visible on the host. This allows direct routing between the host and VPN clients.
-
-Requirements:
-- `net.ipv4.ip_forward=1` must be set on the host
-- Ports 443/tcp and 443/udp must be free on the host
-
-### Bridge Mode
-
-The container runs in an isolated network namespace. The host cannot directly reach VPN clients — only port 443 is forwarded.
-
-To switch, edit `docker-compose.yml`: comment out `network_mode: host` and uncomment the `ports`/`sysctls` section at the bottom of the file.
-
-Or via `docker run`:
-
-```bash
-docker run -d \
-  --name ocserv \
-  --restart unless-stopped \
-  --cap-add=NET_ADMIN \
+  --cap-add NET_ADMIN \
   --device /dev/net/tun:/dev/net/tun \
   --sysctl net.ipv4.ip_forward=1 \
   -p 443:443/tcp \
   -p 443:443/udp \
   --env-file .env \
-  -v "$(pwd)/config:/etc/ocserv:ro" \
+  -v ./config:/etc/ocserv \
+  -v ./config/ocserv.conf:/etc/ocserv/ocserv.conf:ro \
   --security-opt no-new-privileges \
   ghcr.io/gifi71/ocserv-docker:latest
 ```
 
 ---
 
-## Roadmap
+## Building from Source
 
-- [x] Multi-stage build
-- [x] Published to GHCR
-- [x] s6-overlay supervision
-- [x] ocserv-exporter integration
-- [x] Healthcheck
-- [x] Multi-architecture support
-- [ ] CI tests for image validation
+```bash
+make build            # local build for current arch
+make build-multiarch  # multi-platform build + push
+make test             # build + run integration tests
+make lint             # run all linters (hadolint, shellcheck, yamllint)
+```
 
 ---
 
 ## Contributing
 
-Contributions, issues and feature requests are welcome.
-Check the [issues page](https://github.com/gifi71/ocserv-docker/issues) or submit a pull request.
+Contributions are welcome — open an [issue](https://github.com/gifi71/ocserv-docker/issues) or submit a PR.
 
-To set up pre-commit hooks:
+Setup:
 
 ```bash
-pip install pre-commit
+# Install pre-commit using your preferred method (pipx, pip, brew, OS package manager, etc.)
 pre-commit install
 ```
+
+The project uses [Conventional Commits](https://www.conventionalcommits.org/) and enforces it via pre-commit hook.
+
+Linters: hadolint, shellcheck, yamllint.
 
 ---
 
 ## License
 
-This project includes `ocserv`, licensed under [GNU GPLv2](https://www.gnu.org/licenses/gpl-2.0.html). The Dockerfile, scripts, and configuration in this repository are independent works (aggregation, not derivative) and may be licensed separately.
+This repository (Dockerfile, scripts, configuration) is licensed under [MIT](LICENSE).
+
+It includes [ocserv](https://gitlab.com/openconnect/ocserv/), which is licensed under [GNU GPLv2](https://www.gnu.org/licenses/gpl-2.0.html). The two are independent works (aggregation per GPL terms).
 
 ---
 
