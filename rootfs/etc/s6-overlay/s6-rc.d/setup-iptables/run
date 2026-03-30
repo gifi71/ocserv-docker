@@ -31,7 +31,7 @@ iptables -C FORWARD -d "$VPN_NETWORK" -m state --state RELATED,ESTABLISHED -j AC
 # Clamp MSS to path MTU to avoid fragmentation inside the tunnel.
 # Applied to all FORWARD traffic (not just VPN_NETWORK) so that Docker bridge
 # and other networks routing through the tun interface also get correct MSS.
-iptables -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null \
-  || iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null \
+  || iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
 echo "[INFO] Firewall configured"
