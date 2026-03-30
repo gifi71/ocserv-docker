@@ -10,10 +10,11 @@ CVE-2023-2953
 # glibc vulnerability, no fix in Debian 12
 CVE-2026-0861
 
-# TODO: remove when criteo/ocserv-exporter releases a build with Go >= 1.25.7
+# TODO: remove when criteo/ocserv-exporter releases a build with Go >= 1.25.8
 # Go stdlib vulnerabilities bundled in pre-built exporter binary (Go 1.25.4)
 CVE-2025-68121
 CVE-2025-61730
 CVE-2025-61729
 CVE-2025-61728
 CVE-2025-61726
+CVE-2026-25679
