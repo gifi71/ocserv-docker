@@ -152,6 +152,10 @@ jobs:
           image-ref: ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
           format: table
           severity: CRITICAL,HIGH
+          # Suppress CVEs with no upstream fix (Debian "will_not_fix"/"affected"/
+          # "fix_deferred"); only fixable-but-unpatched CVEs gate the build, plus
+          # whatever is explicitly listed in .trivyignore.
+          ignore-unfixed: true
           exit-code: '1'
           trivyignores: .trivyignore
 
