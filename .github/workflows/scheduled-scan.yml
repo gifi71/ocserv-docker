@@ -43,6 +43,10 @@ jobs:
           format: table
           output: trivy-results.txt
           severity: CRITICAL
+          # Match the CI gate: only file an issue for CVEs that actually have a
+          # fix. Unfixed Debian-12 CVEs (e.g. perl-base CRITICALs) would
+          # otherwise re-open a noise issue every week.
+          ignore-unfixed: true
           exit-code: '1'
           trivyignores: .trivyignore
         continue-on-error: true
