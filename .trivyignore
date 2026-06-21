@@ -1,20 +1,27 @@
-# TODO: remove when Debian releases a patched zlib1g package
-# Affects minizip's zipOpenNewFileInZip4_64, not used by ocserv
-CVE-2023-45853
+# OS-package CVEs that have no fix in Debian 12 are suppressed automatically via
+# `ignore-unfixed: true` in the Trivy scan step (.github/workflows/ci.yml); they
+# no longer need to be listed here individually.
+#
+# Listed below are CVEs that DO have an upstream fix but which we cannot pick up
+# yet, so they must be ignored explicitly (ignore-unfixed does not cover them).
 
-# TODO: remove when Debian releases a patched libldap package
-# Null pointer deref in OpenLDAP ber_memalloc_x, no fix in Debian 12
-CVE-2023-2953
-
-# TODO: remove when Debian releases a patched glibc package
-# glibc vulnerability, no fix in Debian 12
-CVE-2026-0861
-
-# TODO: remove when criteo/ocserv-exporter releases a build with Go >= 1.25.8
-# Go stdlib vulnerabilities bundled in pre-built exporter binary (Go 1.25.4)
-CVE-2025-68121
-CVE-2025-61730
-CVE-2025-61729
-CVE-2025-61728
+# ── ocserv-exporter (pre-built Go binary) ─────────────────────────────────────
+# criteo/ocserv-exporter v0.2.2 (latest release) ships a binary built with
+# Go 1.25.4, bundling Go stdlib vulnerabilities. No newer pre-built binary
+# exists. Remove these once the exporter is built from source with a patched Go.
+# Tracking: https://github.com/gifi71/ocserv-docker/issues/39
 CVE-2025-61726
+CVE-2025-61729
+CVE-2025-68121
 CVE-2026-25679
+CVE-2026-32280
+CVE-2026-32281
+CVE-2026-32283
+CVE-2026-33811
+CVE-2026-33814
+CVE-2026-39820
+CVE-2026-39823
+CVE-2026-39825
+CVE-2026-39836
+CVE-2026-42499
+CVE-2026-42504
