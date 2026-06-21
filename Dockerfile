@@ -1,5 +1,5 @@
 ARG S6_OVERLAY_VERSION=3.2.2.0
-ARG OCSERV_VERSION=1.4.0
+ARG OCSERV_VERSION=1.5.0
 ARG OCSERV_EXPORTER_VERSION=0.2.2
 
 # ── Base image ────────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libseccomp-dev libnl-route-3-dev libkrb5-dev libradcli-dev \
     libcurl4-gnutls-dev libcjose-dev libjansson-dev liboath-dev libssl-dev \
     libprotobuf-c-dev libtalloc-dev \
-    protobuf-c-compiler gperf ipcalc-ng gpg gpg-agent
+    protobuf-c-compiler gperf ipcalc-ng meson ninja-build gpg gpg-agent
 
 COPY ./keys/96865171.asc /usr/local/share/96865171.asc
 
@@ -131,9 +131,9 @@ RUN --mount=type=tmpfs,target=/tmp \
  && grep -q "^\[GNUPG:\] VALIDSIG 1F42418905D8206AA754CCDC29EE58B996865171" gpg-status.txt \
  && tar xf "ocserv-${OCSERV_VERSION}.tar.xz" \
  && cd "ocserv-${OCSERV_VERSION}" \
- && ./configure --prefix=/opt/ocserv --enable-oidc-auth \
- && make -j"$(nproc)" \
- && make install
+ && meson setup build --prefix=/opt/ocserv --buildtype=release -Doidc-auth=enabled \
+ && meson compile -C build \
+ && meson install -C build
 
 # ── Final image ───────────────────────────────────────────────────────────────
 FROM base AS final
