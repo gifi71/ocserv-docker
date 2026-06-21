@@ -2,3 +2,13 @@
 config/
 *.pem
 *.key
+
+# Local scratch / learning material (not part of the image)
+local/
+
+# Tooling caches
+.serena/
+.omc/
+
+# Upstream ocserv clone for tag diffing
+.upstream/
